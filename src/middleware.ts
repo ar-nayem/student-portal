@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 import type { NextRequest } from 'next/server'
+import { requireAuthSecret } from './lib/authSecret'
 
-const secret = process.env.NEXTAUTH_SECRET || 'glorie-secret-key-2024-change-in-production'
+const secret = requireAuthSecret()
 
 export async function middleware(request: NextRequest) {
   const token = await getToken({ req: request, secret })

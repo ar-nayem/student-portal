@@ -4,8 +4,9 @@ import { prisma } from '@/src/lib/prisma'
 import { getToken } from 'next-auth/jwt'
 import { SUPER_DEVELOPER } from '@/src/lib/roles'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuthSecret } from '@/src/lib/authSecret'
 
-const secret = process.env.NEXTAUTH_SECRET || 'glorie-secret-key-2024-change-in-production'
+const secret = requireAuthSecret()
 
 // Deliberately reads the JWT directly instead of going through
 // getEffectiveUser: that helper returns null for a suspended or expired org,

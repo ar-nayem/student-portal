@@ -3,8 +3,9 @@ import { NextRequest } from 'next/server'
 import { prisma } from './prisma'
 import { SUPER_DEVELOPER } from './roles'
 import { parseFeatures, type FeatureKey } from './features'
+import { requireAuthSecret } from './authSecret'
 
-const secret = process.env.NEXTAUTH_SECRET || 'glorie-secret-key-2024-change-in-production'
+const secret = requireAuthSecret()
 
 export async function getSessionUser(req: NextRequest) {
   const token = await getToken({ req, secret })

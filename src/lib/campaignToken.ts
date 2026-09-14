@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'crypto'
+import { requireAuthSecret } from './authSecret'
 
-const secret = process.env.NEXTAUTH_SECRET || 'glorie-secret-key-2024-change-in-production'
+const secret = requireAuthSecret()
 
 // One-click unsubscribe links need to work without a login — a stateless
 // HMAC means we don't need a separate token table, just recompute and compare.
