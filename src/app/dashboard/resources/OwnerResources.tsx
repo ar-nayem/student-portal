@@ -1,8 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, Plus, FileText, Link2, Trash2, Users, History, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -25,27 +23,31 @@ interface AdminOption {
   id: string
   name: string
   email: string
-  isActive: boolean
-  organization: { name: string } | null
 }
 
 interface AccessLogEntry {
   id: string
   accessedAt: string
-  admin: { name: string; email: string; organization: { name: string } | null }
+  admin: { name: string; email: string }
 }
 
 interface GrantEntry {
   adminId: string
   grantedAt: string
-  admin: { name: string; email: string; organization: { name: string } | null }
+  admin: { name: string; email: string }
   grantedBy: { name: string }
 }
 
-export default function PlatformResourcesPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-  const { t } = useLanguage()
+async function errorMessage(res: Response, fallback: string) {
+  try {
+    const data = await res.json()
+    if (typeof data?.error === 'string') return data.error
+  } catch {}
+  return fallback
+}
+
+export default function OwnerResources() {
+  const { t, formatDateTime } = useLanguage()
 
   const [resources, setResources] = useState<ResourceSummary[]>([])
   const [admins, setAdmins] = useState<AdminOption[]>([])
@@ -58,31 +60,30 @@ export default function PlatformResourcesPage() {
   const [url, setUrl] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const expandedRef = useRef<string | null>(null)
   const [logs, setLogs] = useState<AccessLogEntry[]>([])
   const [grants, setGrants] = useState<GrantEntry[]>([])
   const [selectedAdminId, setSelectedAdminId] = useState('')
 
   useEffect(() => {
-    if (status === 'loading') return
-    if (session && session.user?.actualRole !== 'SUPER_DEVELOPER') {
-      router.push('/dashboard')
-      return
-    }
-    if (session) loadAll()
-  }, [session, status])
+    loadAll()
+  }, [])
 
-  async function loadAll() {
-    setLoading(true)
+  // `silent` refreshes the list in place; without it the whole page swaps to a
+  // spinner, which would also collapse an open access panel.
+  async function loadAll(silent = false) {
+    if (!silent) setLoading(true)
     try {
       const [rRes, aRes] = await Promise.all([
-        fetch('/api/platform/resources'),
-        fetch('/api/platform/admins'),
+        fetch('/api/shared-resources'),
+        fetch('/api/shared-resources/admins'),
       ])
-      if (!rRes.ok || !aRes.ok) throw new Error()
+      if (!rRes.ok) throw new Error(await errorMessage(rRes, t('resources.loadFailed')))
+      if (!aRes.ok) throw new Error(await errorMessage(aRes, t('resources.loadFailed')))
       setResources(await rRes.json())
       setAdmins(await aRes.json())
-    } catch {
-      toast.error(t('resources.loadFailed'))
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : t('resources.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -103,17 +104,17 @@ export default function PlatformResourcesPage() {
       if (kind === 'LINK') formData.set('url', url.trim())
       else if (file) formData.set('file', file)
 
-      const res = await fetch('/api/platform/resources', { method: 'POST', body: formData })
-      if (!res.ok) throw new Error()
+      const res = await fetch('/api/shared-resources', { method: 'POST', body: formData })
+      if (!res.ok) throw new Error(await errorMessage(res, t('resources.createFailed')))
 
       setTitle('')
       setDescription('')
       setUrl('')
       setFile(null)
       setShowCreate(false)
-      await loadAll()
-    } catch {
-      toast.error(t('resources.createFailed'))
+      await loadAll(true)
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : t('resources.createFailed'))
     } finally {
       setCreating(false)
     }
@@ -122,85 +123,74 @@ export default function PlatformResourcesPage() {
   async function deleteResource(id: string) {
     if (!confirm(t('resources.deleteConfirm'))) return
     try {
-      const res = await fetch(`/api/platform/resources/${id}`, { method: 'DELETE' })
-      if (!res.ok) {
-        toast.error(t('resources.loadFailed'))
-        return
+      const res = await fetch(`/api/shared-resources/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error(await errorMessage(res, t('resources.loadFailed')))
+      if (expandedRef.current === id) {
+        expandedRef.current = null
+        setExpandedId(null)
       }
-      if (expandedId === id) setExpandedId(null)
-      await loadAll()
-    } catch {
-      toast.error(t('resources.loadFailed'))
+      await loadAll(true)
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : t('resources.loadFailed'))
+    }
+  }
+
+  // Ignores a response that arrives after the owner has moved to another
+  // panel, so one resource's grants can never show under another.
+  async function refreshPanel(id: string) {
+    try {
+      const res = await fetch(`/api/shared-resources/${id}/access-log`)
+      if (!res.ok) throw new Error(await errorMessage(res, t('resources.loadFailed')))
+      const data = await res.json()
+      if (expandedRef.current !== id) return
+      setLogs(data.logs)
+      setGrants(data.grants)
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : t('resources.loadFailed'))
     }
   }
 
   async function toggleExpand(id: string) {
-    if (expandedId === id) {
+    if (expandedRef.current === id) {
+      expandedRef.current = null
       setExpandedId(null)
       return
     }
+    expandedRef.current = id
     setExpandedId(id)
     setSelectedAdminId('')
-    try {
-      const res = await fetch(`/api/platform/resources/${id}/access-log`)
-      if (!res.ok) {
-        toast.error(t('resources.loadFailed'))
-        return
-      }
-      const data = await res.json()
-      setLogs(data.logs)
-      setGrants(data.grants)
-    } catch {
-      toast.error(t('resources.loadFailed'))
-    }
+    setLogs([])
+    setGrants([])
+    await refreshPanel(id)
   }
 
   async function grantAdmin(resourceId: string) {
     if (!selectedAdminId) return
     try {
-      const res = await fetch(`/api/platform/resources/${resourceId}/grants`, {
+      const res = await fetch(`/api/shared-resources/${resourceId}/grants`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminId: selectedAdminId }),
       })
-      if (!res.ok) {
-        toast.error(t('resources.loadFailed'))
-        return
-      }
+      if (!res.ok) throw new Error(await errorMessage(res, t('resources.loadFailed')))
       setSelectedAdminId('')
-      await toggleExpandRefresh(resourceId)
-    } catch {
-      toast.error(t('resources.loadFailed'))
+      await Promise.all([refreshPanel(resourceId), loadAll(true)])
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : t('resources.loadFailed'))
     }
   }
 
   async function revokeAdmin(resourceId: string, adminId: string) {
     try {
-      const res = await fetch(`/api/platform/resources/${resourceId}/grants?adminId=${adminId}`, { method: 'DELETE' })
-      if (!res.ok) {
-        toast.error(t('resources.loadFailed'))
-        return
-      }
-      await toggleExpandRefresh(resourceId)
-    } catch {
-      toast.error(t('resources.loadFailed'))
+      const res = await fetch(`/api/shared-resources/${resourceId}/grants?adminId=${encodeURIComponent(adminId)}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error(await errorMessage(res, t('resources.loadFailed')))
+      await Promise.all([refreshPanel(resourceId), loadAll(true)])
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : t('resources.loadFailed'))
     }
   }
 
-  async function toggleExpandRefresh(resourceId: string) {
-    try {
-      const res = await fetch(`/api/platform/resources/${resourceId}/access-log`)
-      if (!res.ok) return
-      const data = await res.json()
-      setLogs(data.logs)
-      setGrants(data.grants)
-      await loadAll()
-    } catch {
-      toast.error(t('resources.loadFailed'))
-    }
-  }
-
-  if (!session || loading) return <div className="p-8 text-center">{t('common.loading')}</div>
+  if (loading) return <div className="p-8 text-center">{t('common.loading')}</div>
 
   return (
     <div className="space-y-6">
@@ -240,7 +230,7 @@ export default function PlatformResourcesPage() {
             className="w-full px-3 py-2 border border-border rounded-xl text-sm bg-background outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
 
           {kind === 'LINK' ? (
-            <input type="url" required value={url} onChange={(e) => setUrl(e.target.value)}
+            <input required type="url" value={url} onChange={(e) => setUrl(e.target.value)}
               placeholder={t('resources.urlPlaceholder')}
               className="w-full px-3 py-2 border border-border rounded-xl text-sm bg-background outline-none focus:ring-2 focus:ring-indigo-500" />
           ) : (
@@ -278,7 +268,7 @@ export default function PlatformResourcesPage() {
                     </div>
                     {r.description && <p className="text-xs text-muted-foreground mt-0.5">{r.description}</p>}
                     <p className="text-[11px] text-muted-foreground mt-1">
-                      {t('resources.createdBy')}: {r.createdBy.name} · {new Date(r.createdAt).toLocaleString()}
+                      {t('resources.createdBy')}: {r.createdBy.name} · {formatDateTime(r.createdAt)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -299,26 +289,30 @@ export default function PlatformResourcesPage() {
                   <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-4 bg-background/50">
                     <div className="rounded-xl border border-border p-3">
                       <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> {t('resources.grantAdmin')}</p>
-                      <div className="flex items-center gap-2 mb-3">
-                        <select value={selectedAdminId} onChange={(e) => setSelectedAdminId(e.target.value)}
-                          className="flex-1 px-2 py-1.5 border border-border rounded-lg text-xs bg-background outline-none">
-                          <option value="">{t('resources.selectAdmin')}</option>
-                          {admins.map((a) => (
-                            <option key={a.id} value={a.id}>{a.name} — {a.organization?.name || a.email}</option>
-                          ))}
-                        </select>
-                        <button type="button" onClick={() => grantAdmin(r.id)} disabled={!selectedAdminId}
-                          className="px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium disabled:opacity-50">
-                          {t('resources.grant')}
-                        </button>
-                      </div>
+                      {admins.length === 0 ? (
+                        <p className="text-[11px] text-muted-foreground mb-3">{t('resources.noAdmins')}</p>
+                      ) : (
+                        <div className="flex items-center gap-2 mb-3">
+                          <select value={selectedAdminId} onChange={(e) => setSelectedAdminId(e.target.value)}
+                            className="flex-1 px-2 py-1.5 border border-border rounded-lg text-xs bg-background outline-none">
+                            <option value="">{t('resources.selectAdmin')}</option>
+                            {admins.filter((a) => !grants.some((g) => g.adminId === a.id)).map((a) => (
+                              <option key={a.id} value={a.id}>{a.name} — {a.email}</option>
+                            ))}
+                          </select>
+                          <button type="button" onClick={() => grantAdmin(r.id)} disabled={!selectedAdminId}
+                            className="px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium disabled:opacity-50">
+                            {t('resources.grant')}
+                          </button>
+                        </div>
+                      )}
                       {grants.length === 0 ? (
                         <p className="text-[11px] text-muted-foreground">{t('resources.noGrants')}</p>
                       ) : (
                         <ul className="space-y-1.5">
                           {grants.map((g) => (
                             <li key={g.adminId} className="flex items-center justify-between text-xs">
-                              <span>{g.admin.name} <span className="text-muted-foreground">({g.admin.organization?.name || g.admin.email})</span></span>
+                              <span>{g.admin.name} <span className="text-muted-foreground">({g.admin.email})</span></span>
                               <button type="button" onClick={() => revokeAdmin(r.id, g.adminId)} className="text-rose-600 hover:underline inline-flex items-center gap-1">
                                 <X className="w-3 h-3" /> {t('resources.revoke')}
                               </button>
@@ -336,8 +330,8 @@ export default function PlatformResourcesPage() {
                         <ul className="space-y-1.5 max-h-56 overflow-y-auto">
                           {logs.map((l) => (
                             <li key={l.id} className="text-xs">
-                              {l.admin.name} <span className="text-muted-foreground">({l.admin.organization?.name || l.admin.email})</span>
-                              <span className="text-muted-foreground"> — {new Date(l.accessedAt).toLocaleString()}</span>
+                              {l.admin.name} <span className="text-muted-foreground">({l.admin.email})</span>
+                              <span className="text-muted-foreground"> — {formatDateTime(l.accessedAt)}</span>
                             </li>
                           ))}
                         </ul>

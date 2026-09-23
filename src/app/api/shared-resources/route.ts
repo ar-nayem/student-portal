@@ -3,37 +3,39 @@ export const dynamic = 'force-dynamic'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser } from '@/src/lib/session'
-import { SUPER_DEVELOPER } from '@/src/lib/roles'
+import { RESOURCE_DIR, requireResourceOwner } from '@/src/lib/sharedResources'
 import { logActivity } from '@/src/lib/activity'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(req: NextRequest) {
-  const user = await getEffectiveUser(req)
-  if (!user || user.actualRole !== SUPER_DEVELOPER) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  try {
+    const guard = await requireResourceOwner(req)
+    if (guard instanceof NextResponse) return guard
+
+    const resources = await prisma.sharedResource.findMany({
+      where: { organizationId: guard.orgId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true, title: true, description: true, kind: true,
+        originalName: true, mimeType: true, size: true, url: true,
+        createdAt: true,
+        createdBy: { select: { name: true } },
+        _count: { select: { grants: true, accessLogs: true } },
+      },
+    })
+
+    return NextResponse.json(resources)
+  } catch (error) {
+    console.error('GET /api/shared-resources error:', error)
+    return NextResponse.json({ error: 'Failed to load resources' }, { status: 500 })
   }
-
-  const resources = await prisma.platformResource.findMany({
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true, title: true, description: true, kind: true,
-      originalName: true, mimeType: true, size: true, url: true,
-      createdAt: true,
-      createdBy: { select: { name: true } },
-      _count: { select: { grants: true, accessLogs: true } },
-    },
-  })
-
-  return NextResponse.json(resources)
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getEffectiveUser(req)
-    if (!user || user.actualRole !== SUPER_DEVELOPER) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const guard = await requireResourceOwner(req)
+    if (guard instanceof NextResponse) return guard
+    const { user, orgId } = guard
 
     const formData = await req.formData()
     const kind = formData.get('kind') as string
@@ -52,14 +54,17 @@ export async function POST(req: NextRequest) {
       if (!url) {
         return NextResponse.json({ error: 'url is required for a LINK resource' }, { status: 400 })
       }
+      let parsed: URL
       try {
-        const parsed = new URL(url)
-        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('bad protocol')
+        parsed = new URL(url)
       } catch {
         return NextResponse.json({ error: 'url must be a valid http(s) URL' }, { status: 400 })
       }
-      const resource = await prisma.platformResource.create({
-        data: { title, description, kind, url, createdById: user.id },
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return NextResponse.json({ error: 'url must be a valid http(s) URL' }, { status: 400 })
+      }
+      const resource = await prisma.sharedResource.create({
+        data: { title, description, kind, url, createdById: user.id, organizationId: orgId },
       })
       await logActivity(user.id, 'RESOURCE_CREATED', `${title} (link)`)
       return NextResponse.json(resource, { status: 201 })
@@ -72,26 +77,25 @@ export async function POST(req: NextRequest) {
 
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    const storageDir = join(process.cwd(), 'storage', 'resources')
-    await mkdir(storageDir, { recursive: true })
+    await mkdir(RESOURCE_DIR, { recursive: true })
 
     const rawExt = file.name.split('.').pop() || ''
     const ext = /^[a-zA-Z0-9]{1,10}$/.test(rawExt) ? rawExt : 'bin'
     const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
-    await writeFile(join(storageDir, filename), buffer)
+    await writeFile(join(RESOURCE_DIR, filename), buffer)
 
-    const resource = await prisma.platformResource.create({
+    const resource = await prisma.sharedResource.create({
       data: {
         title, description, kind,
         filename, originalName: file.name, mimeType: file.type, size: file.size,
-        createdById: user.id,
+        createdById: user.id, organizationId: orgId,
       },
     })
 
     await logActivity(user.id, 'RESOURCE_CREATED', `${title} (file: ${file.name})`)
     return NextResponse.json(resource, { status: 201 })
   } catch (error) {
-    console.error('POST /api/platform/resources error:', error)
+    console.error('POST /api/shared-resources error:', error)
     return NextResponse.json({ error: 'Failed to create resource' }, { status: 500 })
   }
 }

@@ -1,6 +1,8 @@
 export const en = {
   title: 'Resources',
-  subtitle: 'Share documents or links with specific admins, and see who opened what and when',
+  subtitle: "Share documents or links with your company's admins, and see who opened what and when",
+  adminSubtitle: "Documents and links your company's Developer has shared with you",
+  noAdmins: 'Your company has no active admins yet. Create one in Manage Accounts first.',
   newResource: 'New Resource',
   kindFile: 'File',
   kindLink: 'Link',
@@ -39,7 +41,9 @@ export const en = {
 
 export const zh = {
   title: '资源',
-  subtitle: '与特定管理员分享文档或链接，并查看谁在何时打开了什么',
+  subtitle: '与贵公司的管理员分享文档或链接，并查看谁在何时打开了什么',
+  adminSubtitle: '贵公司开发者与您分享的文档和链接',
+  noAdmins: '贵公司暂无启用的管理员，请先在“账号管理”中创建。',
   newResource: '新建资源',
   kindFile: '文件',
   kindLink: '链接',

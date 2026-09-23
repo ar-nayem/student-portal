@@ -159,7 +159,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     hasFeature('tasks') && { label: t('nav.tasks'), href: '/dashboard/tasks', icon: ListTodo },
     hasFeature('offers') && { label: 'Offers', href: '/dashboard/offers', icon: Megaphone },
     hasFeature('universities') && { label: t('nav.universities'), href: '/dashboard/universities', icon: GraduationCap },
-    role === 'ADMIN' && { label: t('resources.title'), href: '/dashboard/resources', icon: FolderOpen },
+    hasFeature('shared_resources') && { label: t('resources.title'), href: '/dashboard/resources', icon: FolderOpen },
   ]) : keep([
     { label: t('nav.dashboard'), href: '/dashboard/agent', icon: LayoutDashboard },
     { label: t('nav.myStudents'), href: '/dashboard/students', icon: Users },
@@ -190,7 +190,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // returns every organization's traffic for a non-impersonating operator.
     { label: t('nav.analytics'), href: '/dashboard/analytics', icon: BarChart3 },
     { label: t('campaigns.title'), href: '/dashboard/platform/campaigns', icon: Megaphone },
-    { label: t('resources.title'), href: '/dashboard/platform/resources', icon: FolderOpen },
   ] : []
 
   const navItems = isSuperDeveloper

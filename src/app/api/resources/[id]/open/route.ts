@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser } from '@/src/lib/session'
+import { RESOURCE_DIR, requireResourceAdmin } from '@/src/lib/sharedResources'
 import { ADMIN } from '@/src/lib/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import { createReadStream } from 'fs'
@@ -9,22 +9,31 @@ import { access } from 'fs/promises'
 import { join } from 'path'
 import { Readable } from 'stream'
 
+function contentDisposition(name: string) {
+  const ascii = name.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '_')
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`
+}
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const user = await getEffectiveUser(req)
-  if (!user || user.role !== ADMIN) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const guard = await requireResourceAdmin(req)
+  if (guard instanceof NextResponse) return guard
+  const { user, orgId } = guard
 
   const { id } = await params
 
   const grant = await prisma.resourceGrant.findFirst({
-    where: { resourceId: id, adminId: user.id, admin: { role: ADMIN, isActive: true } },
+    where: {
+      resourceId: id,
+      adminId: user.id,
+      admin: { role: ADMIN, isActive: true },
+      resource: { organizationId: orgId },
+    },
   })
   if (!grant) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const resource = await prisma.platformResource.findUnique({ where: { id } })
+  const resource = await prisma.sharedResource.findUnique({ where: { id } })
   if (!resource) {
     return NextResponse.json({ error: 'Resource not found' }, { status: 404 })
   }
@@ -46,7 +55,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Resource unavailable' }, { status: 404 })
   }
 
-  const filePath = join(process.cwd(), 'storage', 'resources', resource.filename)
+  const filePath = join(RESOURCE_DIR, resource.filename)
   try {
     await access(filePath)
   } catch {
@@ -61,7 +70,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     headers: {
       'Content-Type': resource.mimeType || 'application/octet-stream',
       'Content-Length': String(resource.size ?? ''),
-      'Content-Disposition': `attachment; filename="${encodeURIComponent(resource.originalName || resource.title)}"`,
+      'Content-Disposition': contentDisposition(resource.originalName || resource.title),
+      'X-Content-Type-Options': 'nosniff',
       'Cache-Control': 'private, max-age=0',
     },
   })

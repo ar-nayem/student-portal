@@ -1,18 +1,21 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser } from '@/src/lib/session'
+import { requireResourceAdmin } from '@/src/lib/sharedResources'
 import { ADMIN } from '@/src/lib/roles'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(req: NextRequest) {
-  const user = await getEffectiveUser(req)
-  if (!user || user.role !== ADMIN) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const guard = await requireResourceAdmin(req)
+  if (guard instanceof NextResponse) return guard
+  const { user, orgId } = guard
 
   const grants = await prisma.resourceGrant.findMany({
-    where: { adminId: user.id, admin: { role: ADMIN, isActive: true } },
+    where: {
+      adminId: user.id,
+      admin: { role: ADMIN, isActive: true },
+      resource: { organizationId: orgId },
+    },
     orderBy: { grantedAt: 'desc' },
     select: {
       grantedAt: true,

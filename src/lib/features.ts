@@ -53,6 +53,7 @@ export const FEATURES: FeatureDef[] = [
   { key: 'document_requirements', label: 'Document Requirements', hint: 'Customising which documents students must upload', group: 'Administration' },
   { key: 'field_requirements', label: 'Field Requirements', hint: 'Customising which form fields are required', group: 'Administration' },
   { key: 'visitor_analytics', label: 'Visitor Analytics', hint: 'Traffic and visitor statistics', group: 'Administration' },
+  { key: 'shared_resources', label: 'Shared Resources', hint: 'Sharing documents and links with your admins and tracking who opened them', group: 'Administration' },
   { key: 'alert_settings', label: 'Alert Settings', hint: 'Choosing which admins receive system alert emails', group: 'Administration' },
   { key: 'backup_export', label: 'Download Full Backup', hint: 'Full export of every student, document and transaction', group: 'Administration' },
   { key: 'data_export', label: 'Export All Data', hint: 'Bulk student data export as Excel', group: 'Administration' },

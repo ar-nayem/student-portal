@@ -151,6 +151,7 @@ model Organization {
   tasks                Task[]
   universities         University[]
   universityDocuments  UniversityDocument[]
+  sharedResources      SharedResource[]
 }
 
 model User {
@@ -203,7 +204,7 @@ model User {
   createdTasks      Task[] @relation("TaskCreatedBy")
   assignedTasks     Task[] @relation("TaskAssignedTo")
   campaigns         Campaign[]
-  createdResources        PlatformResource[]
+  createdResources        SharedResource[]
   resourceGrantsReceived  ResourceGrant[]      @relation("ResourceGrantedTo")
   resourceGrantsIssued    ResourceGrant[]      @relation("ResourceGrantedBy")
   resourceAccessLogs      ResourceAccessLog[]  @relation("ResourceAccessedBy")
@@ -746,9 +747,10 @@ model CampaignRecipient {
   @@index([campaignId])
 }
 
-// Platform-level shareable resource (a file or a link) the developer hands
-// out to specific admins. Not org-scoped — same reasoning as Campaign.
-model PlatformResource {
+// A file or link a company's Developer (owner) shares with specific admins of
+// that same company. Strictly org-scoped: every query filters on
+// organizationId, and a grant can only target an admin of the same org.
+model SharedResource {
   id           String   @id @default(uuid())
   title        String
   description  String?
@@ -763,8 +765,13 @@ model PlatformResource {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   grants     ResourceGrant[]
   accessLogs ResourceAccessLog[]
+
+  @@index([organizationId])
 }
 
 // One admin's permission to see one resource. Deleting this row revokes
@@ -773,7 +780,7 @@ model PlatformResource {
 model ResourceGrant {
   id          String   @id @default(uuid())
   resourceId  String
-  resource    PlatformResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  resource    SharedResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
   adminId     String
   admin       User     @relation("ResourceGrantedTo", fields: [adminId], references: [id], onDelete: Cascade)
   grantedById String
@@ -790,7 +797,7 @@ model ResourceGrant {
 model ResourceAccessLog {
   id         String   @id @default(uuid())
   resourceId String
-  resource   PlatformResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  resource   SharedResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
   adminId    String
   admin      User     @relation("ResourceAccessedBy", fields: [adminId], references: [id], onDelete: Cascade)
   accessedAt DateTime @default(now())

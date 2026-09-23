@@ -5,6 +5,7 @@ import { getEffectiveUser } from '@/src/lib/session'
 import { SUPER_DEVELOPER } from '@/src/lib/roles'
 import { logActivity } from '@/src/lib/activity'
 import { sendNotification, orgWelcomeTemplate } from '@/src/lib/email'
+import { RESOURCE_DIR } from '@/src/lib/sharedResources'
 import { NextRequest, NextResponse } from 'next/server'
 import { unlink } from 'fs/promises'
 import { join, resolve } from 'path'
@@ -125,9 +126,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     // Collect the stored filenames before the rows go, so the uploaded files
     // can be reclaimed afterwards rather than being orphaned on disk.
-    const [docs, uniDocs, userIds, studentIds, portalIds, universityIds] = await Promise.all([
+    const [docs, uniDocs, sharedFiles, userIds, studentIds, portalIds, universityIds] = await Promise.all([
       prisma.document.findMany({ where: { organizationId: id }, select: { filename: true } }),
       prisma.universityDocument.findMany({ where: { organizationId: id }, select: { filename: true } }),
+      prisma.sharedResource.findMany({ where: { organizationId: id, kind: 'FILE' }, select: { filename: true } }),
       prisma.user.findMany({ where: { organizationId: id }, select: { id: true } }),
       prisma.student.findMany({ where: { organizationId: id }, select: { id: true } }),
       prisma.universityPortal.findMany({ where: { organizationId: id }, select: { id: true } }),
@@ -160,6 +162,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       // VisitorLog.organizationId is a plain column with no foreign key, so
       // these would survive as untraceable rows if not cleared here.
       await tx.visitorLog.deleteMany({ where: { organizationId: id } })
+      // Grants and access logs cascade from the resource. This has to precede the
+      // user delete: SharedResource.createdById and ResourceGrant.grantedById
+      // restrict deleting the users that made them.
+      await tx.sharedResource.deleteMany({ where: { organizationId: id } })
       // Self-referencing manager link has to be cleared before the users go.
       await tx.user.updateMany({ where: { managedByAdminId: { in: uids } }, data: { managedByAdminId: null } })
       await tx.user.deleteMany({ where: { organizationId: id } })
@@ -181,6 +187,18 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         filesRemoved++
       } catch {
         // Already gone, or never written — not worth failing the delete over.
+      }
+    }
+
+    for (const f of sharedFiles) {
+      if (!f.filename) continue
+      const target = resolve(RESOURCE_DIR, f.filename)
+      if (!target.startsWith(resolve(RESOURCE_DIR))) continue
+      try {
+        await unlink(target)
+        filesRemoved++
+      } catch {
+        // Already gone — not worth failing the delete over.
       }
     }
 
