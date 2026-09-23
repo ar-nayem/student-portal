@@ -203,6 +203,10 @@ model User {
   createdTasks      Task[] @relation("TaskCreatedBy")
   assignedTasks     Task[] @relation("TaskAssignedTo")
   campaigns         Campaign[]
+  createdResources        PlatformResource[]
+  resourceGrantsReceived  ResourceGrant[]      @relation("ResourceGrantedTo")
+  resourceGrantsIssued    ResourceGrant[]      @relation("ResourceGrantedBy")
+  resourceAccessLogs      ResourceAccessLog[]  @relation("ResourceAccessedBy")
 }
 
 model Student {
@@ -740,4 +744,57 @@ model CampaignRecipient {
   campaign   Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   @@index([campaignId])
+}
+
+// Platform-level shareable resource (a file or a link) the developer hands
+// out to specific admins. Not org-scoped — same reasoning as Campaign.
+model PlatformResource {
+  id           String   @id @default(uuid())
+  title        String
+  description  String?
+  kind         String   // FILE | LINK
+  filename     String?  // set when kind = FILE; stored under storage/resources/, never public/
+  originalName String?
+  mimeType     String?
+  size         Int?
+  url          String?  // set when kind = LINK
+  createdById  String
+  createdBy    User     @relation(fields: [createdById], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  grants     ResourceGrant[]
+  accessLogs ResourceAccessLog[]
+}
+
+// One admin's permission to see one resource. Deleting this row revokes
+// access immediately; it does not touch that admin's past ResourceAccessLog
+// rows, so history survives a later revoke.
+model ResourceGrant {
+  id          String   @id @default(uuid())
+  resourceId  String
+  resource    PlatformResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  adminId     String
+  admin       User     @relation("ResourceGrantedTo", fields: [adminId], references: [id], onDelete: Cascade)
+  grantedById String
+  grantedBy   User     @relation("ResourceGrantedBy", fields: [grantedById], references: [id])
+  grantedAt   DateTime @default(now())
+
+  @@unique([resourceId, adminId])
+  @@index([adminId])
+}
+
+// One row per open/download — full history, not deduped. Written only by
+// GET /api/resources/[id]/open, the single route that ever serves the
+// underlying file or link.
+model ResourceAccessLog {
+  id         String   @id @default(uuid())
+  resourceId String
+  resource   PlatformResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  adminId    String
+  admin      User     @relation("ResourceAccessedBy", fields: [adminId], references: [id], onDelete: Cascade)
+  accessedAt DateTime @default(now())
+
+  @@index([resourceId])
+  @@index([adminId])
 }
