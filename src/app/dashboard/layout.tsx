@@ -159,6 +159,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     hasFeature('tasks') && { label: t('nav.tasks'), href: '/dashboard/tasks', icon: ListTodo },
     hasFeature('offers') && { label: 'Offers', href: '/dashboard/offers', icon: Megaphone },
     hasFeature('universities') && { label: t('nav.universities'), href: '/dashboard/universities', icon: GraduationCap },
+    role === 'ADMIN' && { label: t('resources.title'), href: '/dashboard/resources', icon: FolderOpen },
   ]) : keep([
     { label: t('nav.dashboard'), href: '/dashboard/agent', icon: LayoutDashboard },
     { label: t('nav.myStudents'), href: '/dashboard/students', icon: Users },
