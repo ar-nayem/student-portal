@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, UserPlus, FileText,
   Settings, LogOut, Shield, GraduationCap, MessageSquare,
   ListChecks, Menu, X, Wallet, Globe, BarChart3, Megaphone, Bell,
-  Building2, LogIn, ListTodo, ChevronLeft, ChevronRight, Package, CreditCard
+  Building2, LogIn, ListTodo, ChevronLeft, ChevronRight, Package, CreditCard, FolderOpen
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -189,6 +189,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // returns every organization's traffic for a non-impersonating operator.
     { label: t('nav.analytics'), href: '/dashboard/analytics', icon: BarChart3 },
     { label: t('campaigns.title'), href: '/dashboard/platform/campaigns', icon: Megaphone },
+    { label: t('resources.title'), href: '/dashboard/platform/resources', icon: FolderOpen },
   ] : []
 
   const navItems = isSuperDeveloper
