@@ -3,6 +3,7 @@ node_modules/
 .env*
 !.env.example
 public/uploads/
+storage/
 prisma/dev.db
 /dev.db
 *.tsbuildinfo
