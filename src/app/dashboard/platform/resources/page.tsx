@@ -240,7 +240,7 @@ export default function PlatformResourcesPage() {
             className="w-full px-3 py-2 border border-border rounded-xl text-sm bg-background outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
 
           {kind === 'LINK' ? (
-            <input required value={url} onChange={(e) => setUrl(e.target.value)}
+            <input type="url" required value={url} onChange={(e) => setUrl(e.target.value)}
               placeholder={t('resources.urlPlaceholder')}
               className="w-full px-3 py-2 border border-border rounded-xl text-sm bg-background outline-none focus:ring-2 focus:ring-indigo-500" />
           ) : (

@@ -17,8 +17,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params
 
-  const grant = await prisma.resourceGrant.findUnique({
-    where: { resourceId_adminId: { resourceId: id, adminId: user.id } },
+  const grant = await prisma.resourceGrant.findFirst({
+    where: { resourceId: id, adminId: user.id, admin: { role: ADMIN, isActive: true } },
   })
   if (!grant) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -29,18 +29,31 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Resource not found' }, { status: 404 })
   }
 
-  await prisma.resourceAccessLog.create({ data: { resourceId: id, adminId: user.id } })
-
   if (resource.kind === 'LINK') {
-    return NextResponse.redirect(resource.url as string)
+    let target: URL
+    try {
+      target = new URL(resource.url as string)
+      if (target.protocol !== 'http:' && target.protocol !== 'https:') throw new Error('bad protocol')
+    } catch {
+      return NextResponse.json({ error: 'Resource unavailable' }, { status: 404 })
+    }
+
+    await prisma.resourceAccessLog.create({ data: { resourceId: id, adminId: user.id } })
+    return NextResponse.redirect(target)
   }
 
-  const filePath = join(process.cwd(), 'storage', 'resources', resource.filename as string)
+  if (!resource.filename) {
+    return NextResponse.json({ error: 'Resource unavailable' }, { status: 404 })
+  }
+
+  const filePath = join(process.cwd(), 'storage', 'resources', resource.filename)
   try {
     await access(filePath)
   } catch {
     return NextResponse.json({ error: 'File not found on disk' }, { status: 404 })
   }
+
+  await prisma.resourceAccessLog.create({ data: { resourceId: id, adminId: user.id } })
 
   const webStream = Readable.toWeb(createReadStream(filePath)) as unknown as ReadableStream
 

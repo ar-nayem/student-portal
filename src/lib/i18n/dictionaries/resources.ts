@@ -34,6 +34,7 @@ export const en = {
   edit: 'Edit',
   save: 'Save',
   cancel: 'Cancel',
+  open: 'Open',
 }
 
 export const zh = {
@@ -72,4 +73,5 @@ export const zh = {
   edit: '编辑',
   save: '保存',
   cancel: '取消',
+  open: '打开',
 }

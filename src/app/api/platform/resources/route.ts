@@ -52,6 +52,12 @@ export async function POST(req: NextRequest) {
       if (!url) {
         return NextResponse.json({ error: 'url is required for a LINK resource' }, { status: 400 })
       }
+      try {
+        const parsed = new URL(url)
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('bad protocol')
+      } catch {
+        return NextResponse.json({ error: 'url must be a valid http(s) URL' }, { status: 400 })
+      }
       const resource = await prisma.platformResource.create({
         data: { title, description, kind, url, createdById: user.id },
       })

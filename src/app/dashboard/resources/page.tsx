@@ -14,7 +14,6 @@ interface GrantedResource {
   originalName: string | null
   mimeType: string | null
   size: number | null
-  url: string | null
   grantedAt: string
 }
 
@@ -65,7 +64,7 @@ export default function AdminResourcesPage() {
                   rel="noopener noreferrer"
                   className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 transition inline-flex items-center gap-1.5 shrink-0"
                 >
-                  <Download className="w-3.5 h-3.5" /> {r.kind === 'FILE' ? t('resources.chooseFile') : t('resources.kindLink')}
+                  <Download className="w-3.5 h-3.5" /> {r.kind === 'FILE' ? t('common.download') : t('resources.open')}
                 </a>
               </div>
             ))}

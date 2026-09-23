@@ -12,14 +12,14 @@ export async function GET(req: NextRequest) {
   }
 
   const grants = await prisma.resourceGrant.findMany({
-    where: { adminId: user.id },
+    where: { adminId: user.id, admin: { role: ADMIN, isActive: true } },
     orderBy: { grantedAt: 'desc' },
     select: {
       grantedAt: true,
       resource: {
         select: {
           id: true, title: true, description: true, kind: true,
-          originalName: true, mimeType: true, size: true, url: true,
+          originalName: true, mimeType: true, size: true,
         },
       },
     },
