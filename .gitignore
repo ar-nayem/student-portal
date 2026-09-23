@@ -8,3 +8,4 @@ prisma/dev.db
 *.tsbuildinfo
 .DS_Store
 *.traineddata
+.worktrees/
