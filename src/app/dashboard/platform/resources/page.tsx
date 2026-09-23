@@ -121,13 +121,17 @@ export default function PlatformResourcesPage() {
 
   async function deleteResource(id: string) {
     if (!confirm(t('resources.deleteConfirm'))) return
-    const res = await fetch(`/api/platform/resources/${id}`, { method: 'DELETE' })
-    if (!res.ok) {
+    try {
+      const res = await fetch(`/api/platform/resources/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        toast.error(t('resources.loadFailed'))
+        return
+      }
+      if (expandedId === id) setExpandedId(null)
+      await loadAll()
+    } catch {
       toast.error(t('resources.loadFailed'))
-      return
     }
-    if (expandedId === id) setExpandedId(null)
-    await loadAll()
   }
 
   async function toggleExpand(id: string) {
@@ -137,47 +141,63 @@ export default function PlatformResourcesPage() {
     }
     setExpandedId(id)
     setSelectedAdminId('')
-    const res = await fetch(`/api/platform/resources/${id}/access-log`)
-    if (!res.ok) {
+    try {
+      const res = await fetch(`/api/platform/resources/${id}/access-log`)
+      if (!res.ok) {
+        toast.error(t('resources.loadFailed'))
+        return
+      }
+      const data = await res.json()
+      setLogs(data.logs)
+      setGrants(data.grants)
+    } catch {
       toast.error(t('resources.loadFailed'))
-      return
     }
-    const data = await res.json()
-    setLogs(data.logs)
-    setGrants(data.grants)
   }
 
   async function grantAdmin(resourceId: string) {
     if (!selectedAdminId) return
-    const res = await fetch(`/api/platform/resources/${resourceId}/grants`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminId: selectedAdminId }),
-    })
-    if (!res.ok) {
+    try {
+      const res = await fetch(`/api/platform/resources/${resourceId}/grants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId: selectedAdminId }),
+      })
+      if (!res.ok) {
+        toast.error(t('resources.loadFailed'))
+        return
+      }
+      setSelectedAdminId('')
+      await toggleExpandRefresh(resourceId)
+    } catch {
       toast.error(t('resources.loadFailed'))
-      return
     }
-    setSelectedAdminId('')
-    await toggleExpandRefresh(resourceId)
   }
 
   async function revokeAdmin(resourceId: string, adminId: string) {
-    const res = await fetch(`/api/platform/resources/${resourceId}/grants?adminId=${adminId}`, { method: 'DELETE' })
-    if (!res.ok) {
+    try {
+      const res = await fetch(`/api/platform/resources/${resourceId}/grants?adminId=${adminId}`, { method: 'DELETE' })
+      if (!res.ok) {
+        toast.error(t('resources.loadFailed'))
+        return
+      }
+      await toggleExpandRefresh(resourceId)
+    } catch {
       toast.error(t('resources.loadFailed'))
-      return
     }
-    await toggleExpandRefresh(resourceId)
   }
 
   async function toggleExpandRefresh(resourceId: string) {
-    const res = await fetch(`/api/platform/resources/${resourceId}/access-log`)
-    if (!res.ok) return
-    const data = await res.json()
-    setLogs(data.logs)
-    setGrants(data.grants)
-    await loadAll()
+    try {
+      const res = await fetch(`/api/platform/resources/${resourceId}/access-log`)
+      if (!res.ok) return
+      const data = await res.json()
+      setLogs(data.logs)
+      setGrants(data.grants)
+      await loadAll()
+    } catch {
+      toast.error(t('resources.loadFailed'))
+    }
   }
 
   if (!session || loading) return <div className="p-8 text-center">{t('common.loading')}</div>
