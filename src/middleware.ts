@@ -9,12 +9,15 @@ export async function middleware(request: NextRequest) {
   const token = await getToken({ req: request, secret })
   const { pathname } = request.nextUrl
 
+  if (pathname === '/') {
+    return NextResponse.redirect(new URL(token ? '/dashboard' : '/login', request.url))
+  }
+
   // Allow public routes
   const isPublicOffersRead = pathname === '/api/offers' && request.method === 'GET'
   const isChatbot = pathname === '/api/chatbot'
-  // The marketing site and its trial signup are deliberately reachable while
-  // signed out — they're how someone becomes a customer in the first place.
-  const isMarketing = pathname === '/' || pathname === '/signup'
+  // Trial signup remains reachable while signed out.
+  const isMarketing = pathname === '/signup'
   if (
     pathname === '/login' ||
     isMarketing ||
