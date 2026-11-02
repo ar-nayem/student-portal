@@ -34,7 +34,7 @@ const FEATURE_ROWS = [
 const LAUNCH = `<div style="background:#f1f5f9;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;">
 <tr><td style="background:${BRAND};padding:22px 32px;">
-<a href="https://portal.arnayem.top" style="text-decoration:none;color:#ffffff;font-size:19px;font-weight:700;">Student Portal</a>
+<a href="https://portal.edvuno.top" style="text-decoration:none;color:#ffffff;font-size:19px;font-weight:700;">Student Portal</a>
 <div style="color:#c7d2fe;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;margin-top:3px;">For study-abroad agencies</div>
 </td></tr>
 <tr><td style="padding:36px 32px 8px;">
@@ -44,9 +44,9 @@ const LAUNCH = `<div style="background:#f1f5f9;padding:24px 12px;font-family:-ap
 </td></tr>
 <tr><td style="padding:0 32px 30px;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td bgcolor="${BRAND}" style="border-radius:10px;"><a href="https://portal.arnayem.top/signup" style="display:inline-block;padding:14px 26px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">Sign up free &rarr;</a></td>
+<td bgcolor="${BRAND}" style="border-radius:10px;"><a href="https://portal.edvuno.top/signup" style="display:inline-block;padding:14px 26px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">Sign up free &rarr;</a></td>
 <td style="width:12px;">&nbsp;</td>
-<td bgcolor="#ffffff" style="border-radius:10px;border:1px solid #cbd5e1;"><a href="https://portal.arnayem.top" style="display:inline-block;padding:13px 24px;font-size:15px;font-weight:600;color:#334155;text-decoration:none;border-radius:10px;">See everything it does</a></td>
+<td bgcolor="#ffffff" style="border-radius:10px;border:1px solid #cbd5e1;"><a href="https://portal.edvuno.top" style="display:inline-block;padding:13px 24px;font-size:15px;font-weight:600;color:#334155;text-decoration:none;border-radius:10px;">See everything it does</a></td>
 </tr></table>
 </td></tr>
 <tr><td style="padding:0 32px;"><div style="height:1px;background:#e2e8f0;"></div></td></tr>
@@ -58,20 +58,20 @@ const LAUNCH = `<div style="background:#f1f5f9;padding:24px 12px;font-family:-ap
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f8fafc;border-radius:12px;"><tr><td style="padding:26px 24px;text-align:center;">
 <div style="font-size:17px;font-weight:700;color:#0f172a;margin-bottom:6px;">Try it with your real applicants</div>
 <div style="font-size:14px;line-height:1.6;color:#64748b;margin-bottom:20px;">7 days, full access, no card. If it doesn't fit how you work, walk away — and take your data with you.</div>
-${button('Create your free account', 'https://portal.arnayem.top/signup')}
-<div style="font-size:13px;color:#94a3b8;margin-top:16px;">Prefer to look around first? <a href="https://portal.arnayem.top" style="color:${BRAND};">Visit the site</a></div>
+${button('Create your free account', 'https://portal.edvuno.top/signup')}
+<div style="font-size:13px;color:#94a3b8;margin-top:16px;">Prefer to look around first? <a href="https://portal.edvuno.top" style="color:${BRAND};">Visit the site</a></div>
 </td></tr></table>
 </td></tr>
 <tr><td style="background:#0f172a;padding:24px 32px;">
 <div style="font-size:14px;color:#e2e8f0;margin-bottom:6px;">Questions? Just reply to this email — it comes straight to me.</div>
-<div style="font-size:13px;color:#94a3b8;">Nayem &middot; <a href="https://portal.arnayem.top" style="color:#a5b4fc;text-decoration:none;">portal.arnayem.top</a></div>
+<div style="font-size:13px;color:#94a3b8;">Nayem &middot; <a href="https://portal.edvuno.top" style="color:#a5b4fc;text-decoration:none;">portal.edvuno.top</a></div>
 </td></tr>
 </table></div>`
 
 const UPDATE = `<div style="background:#f1f5f9;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;">
 <tr><td style="background:${BRAND};padding:20px 32px;">
-<a href="https://portal.arnayem.top" style="text-decoration:none;color:#ffffff;font-size:18px;font-weight:700;">Student Portal</a>
+<a href="https://portal.edvuno.top" style="text-decoration:none;color:#ffffff;font-size:18px;font-weight:700;">Student Portal</a>
 </td></tr>
 <tr><td style="padding:32px 32px 10px;">
 <div style="display:inline-block;background:#ecfdf5;color:#047857;font-size:12px;font-weight:700;padding:6px 12px;border-radius:99px;margin-bottom:16px;">NEW</div>
@@ -82,9 +82,9 @@ const UPDATE = `<div style="background:#f1f5f9;padding:24px 12px;font-family:-ap
 <tr><td style="padding-bottom:14px;border-left:3px solid #059669;padding-left:14px;"><div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:3px;">Second feature</div><div style="font-size:14px;line-height:1.55;color:#64748b;">Keep each one short — people skim these.</div></td></tr>
 </table>
 </td></tr>
-<tr><td style="padding:14px 32px 34px;text-align:center;">${button('Open your portal', 'https://portal.arnayem.top/login')}</td></tr>
+<tr><td style="padding:14px 32px 34px;text-align:center;">${button('Open your portal', 'https://portal.edvuno.top/login')}</td></tr>
 <tr><td style="background:#0f172a;padding:20px 32px;">
-<div style="font-size:13px;color:#94a3b8;">Nayem &middot; <a href="https://portal.arnayem.top" style="color:#a5b4fc;text-decoration:none;">portal.arnayem.top</a></div>
+<div style="font-size:13px;color:#94a3b8;">Nayem &middot; <a href="https://portal.edvuno.top" style="color:#a5b4fc;text-decoration:none;">portal.edvuno.top</a></div>
 </td></tr>
 </table></div>`
 
@@ -92,7 +92,7 @@ const PLAIN = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe U
 <p style="margin:0 0 16px;">Hi {{firstName}},</p>
 <p style="margin:0 0 16px;">Write your message here. A plain note like this often gets a better reply rate than a designed one — it reads like a person wrote it.</p>
 <p style="margin:0 0 16px;">Just reply if you'd like me to walk you through it.</p>
-<p style="margin:0;">— Nayem<br><a href="https://portal.arnayem.top" style="color:${BRAND};text-decoration:none;">portal.arnayem.top</a></p>
+<p style="margin:0;">— Nayem<br><a href="https://portal.edvuno.top" style="color:${BRAND};text-decoration:none;">portal.edvuno.top</a></p>
 </div>`
 
 export const EMAIL_TEMPLATES: EmailTemplate[] = [

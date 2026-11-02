@@ -7,6 +7,30 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+// Editorial content for the EDVUNO public website. Kept separate from tenant
+// offers and university records so no other organization's data can leak.
+model SiteContent {
+  id        String   @id @default(uuid())
+  type      String
+  slug      String
+  title     String
+  summary   String   @default("")
+  body      String   @default("")
+  imageUrl  String?
+  linkUrl   String?
+  province  String?
+  city      String?
+  subject   String?
+  level     String?
+  published Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, slug])
+  @@index([published, type, sortOrder])
+}
+
 // A subscription tier the super developer defines and assigns to
 // organizations, capping which gateable features (see src/lib/features.ts)
 // that org's users can reach. `features` is a JSON array of feature keys —

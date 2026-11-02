@@ -184,6 +184,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const platformNav = isSuperDeveloper ? [
     { label: t('platform.title'), href: '/dashboard/platform', icon: Building2 },
+    { label: 'EDVUNO website', href: '/dashboard/platform/site-content', icon: Globe },
     { label: t('packages.title'), href: '/dashboard/platform/packages', icon: Package },
     { label: t('billing.title'), href: '/dashboard/platform/billing', icon: CreditCard },
     // Platform-wide analytics: the same page an org owner sees, but the API

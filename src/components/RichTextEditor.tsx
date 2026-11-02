@@ -54,7 +54,7 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
   }, [onChange])
 
   function addLink() {
-    const url = prompt('Link address', 'https://portal.arnayem.top')
+    const url = prompt('Link address', 'https://portal.edvuno.top')
     if (!url) return
     exec('createLink', url)
   }
@@ -62,7 +62,7 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
   function addButton() {
     const label = prompt('Button text', 'Sign up free')
     if (!label) return
-    const url = prompt('Button link', 'https://portal.arnayem.top/signup')
+    const url = prompt('Button link', 'https://portal.edvuno.top/signup')
     if (!url) return
     // Table-wrapped so it survives Outlook, which ignores padding on inline
     // anchors and would otherwise render this as a bare link.

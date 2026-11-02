@@ -259,7 +259,7 @@ const LIFECYCLE_WRAP = (inner: string) => `
     ${inner}
     <p style="margin:24px 0 0;font-size:13px;color:#64748b;">
       — Student Portal &middot;
-      <a href="https://portal.arnayem.top" style="color:#4f46e5;text-decoration:none;">portal.arnayem.top</a>
+      <a href="https://portal.edvuno.top" style="color:#4f46e5;text-decoration:none;">portal.edvuno.top</a>
     </p>
   </div>
 `
