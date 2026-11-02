@@ -41,6 +41,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [userOrg, setUserOrg] = useState<OrgData>({ name: 'EDVUNO', logo: null })
   const [myAvatar, setMyAvatar] = useState<string | null>(null)
   const [myProfile, setMyProfile] = useState<{ name: string; email: string; canViewPortals: boolean } | null>(null)
+  const [canPublishWebsite, setCanPublishWebsite] = useState(false)
+  useEffect(() => { fetch('/api/website-content/access').then(r => r.json()).then(d => setCanPublishWebsite(d.allowed === true)).catch(() => {}) }, [session?.user?.email])
   const [mobileOpen, setMobileOpen] = useState(false)
   // Subscription/trial state. Null until checked — the dashboard renders
   // normally in the meantime rather than flashing a lockout screen at
@@ -195,7 +197,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navItems = isSuperDeveloper
     ? [...platformNav, { label: t('nav.settings'), href: '/dashboard/profile', icon: Settings }]
-    : [...adminNav, ...portalsNav, ...ownerNav, ...baseNav]
+    : [...adminNav, ...(canPublishWebsite ? [{ label: 'Website offers & universities', href: '/dashboard/website', icon: Globe }] : []), ...portalsNav, ...ownerNav, ...baseNav]
 
   // A lapsed or suspended organization gets a plain explanation instead of a
   // dashboard whose every request fails. Sign out stays reachable so a user

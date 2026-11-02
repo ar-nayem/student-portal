@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/src/lib/prisma'
 import { getEffectiveUser } from '@/src/lib/session'
-import { SUPER_DEVELOPER } from '@/src/lib/roles'
+import { canManageSiteContent } from '@/src/lib/siteContentAccess'
 import { validateSiteContent } from '@/src/lib/siteContent'
 
-async function allowed(req: NextRequest) { return (await getEffectiveUser(req))?.actualRole === SUPER_DEVELOPER }
+async function allowed(req: NextRequest) { return canManageSiteContent(await getEffectiveUser(req)) }
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   if (!await allowed(req)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   try {
