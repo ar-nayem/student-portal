@@ -11,8 +11,9 @@ const inter = Inter({ subsets: ['latin'] })
 // other tenant. Dashboard pages show the logged-in user's own org name/logo
 // via /api/organization instead — this is just the generic browser-tab title.
 export const metadata: Metadata = {
-  title: 'Student Portal',
-  description: 'Student application and document management system',
+  icons: { icon: '/brand/brand-icon.svg' },
+  title: 'EDVUNO Portal',
+  description: 'EDVUNO student and website management portal',
 }
 
 export default function RootLayout({

@@ -9,6 +9,8 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        indigo: { 50:'#f1fbf5',100:'#ddf8e9',200:'#b7e9cc',300:'#91dbb5',400:'#65cda5',500:'#278f70',600:'#166b55',700:'#105842',800:'#0a4636',900:'#07372d',950:'#04271f' },
+        violet: { 50:'#f2fcf7',100:'#ddf8e9',200:'#b7e9cc',300:'#91dbb5',400:'#65cda5',500:'#41b98d',600:'#278f70',700:'#166b55',800:'#105842',900:'#07372d',950:'#04271f' },
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {
@@ -22,16 +24,16 @@ module.exports = {
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
-          50: '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
+          50: '#f1fbf5',
+          100: '#ddf8e9',
+          200: '#b7e9cc',
+          300: '#91dbb5',
+          400: '#65cda5',
+          500: '#278f70',
+          600: '#166b55',
+          700: '#105842',
+          800: '#0a4636',
+          900: '#07372d',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',

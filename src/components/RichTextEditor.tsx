@@ -67,7 +67,7 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
     // Table-wrapped so it survives Outlook, which ignores padding on inline
     // anchors and would otherwise render this as a bare link.
     insertHtml(
-      `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0;"><tr><td bgcolor="#4f46e5" style="border-radius:10px;"><a href="${url}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">${label}</a></td></tr></table><p></p>`
+      `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0;"><tr><td bgcolor="#166B55" style="border-radius:10px;"><a href="${url}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">${label}</a></td></tr></table><p></p>`
     )
   }
 

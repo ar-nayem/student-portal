@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --background: 210 40% 98%;
-  --foreground: 222 47% 11%;
+  --background: 140 31% 97%;
+  --foreground: 164 67% 13%;
 
   --card: 0 0% 100%;
   --card-foreground: 222 47% 11%;
@@ -12,56 +12,56 @@
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
 
-  --primary: 243 75% 59%;
+  --primary: 164 66% 25%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 210 40% 96%;
+  --secondary: 144 50% 94%;
   --secondary-foreground: 222 47% 11%;
 
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
+  --muted: 144 35% 94%;
+  --muted-foreground: 158 19% 38%;
 
-  --accent: 142 72% 29%;
+  --accent: 156 53% 60%;
   --accent-foreground: 0 0% 100%;
 
   --destructive: 0 65% 42%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 243 75% 59%;
+  --border: 145 29% 87%;
+  --input: 145 29% 87%;
+  --ring: 164 66% 25%;
 
   --radius: 0.5rem;
 }
 
 .dark {
-  --background: 222 47% 7%;
-  --foreground: 210 40% 96%;
+  --background: 163 59% 8%;
+  --foreground: 143 53% 95%;
 
-  --card: 217 33% 12%;
-  --card-foreground: 210 40% 96%;
+  --card: 164 50% 12%;
+  --card-foreground: 143 53% 95%;
 
-  --popover: 217 33% 12%;
-  --popover-foreground: 210 40% 96%;
+  --popover: 164 50% 12%;
+  --popover-foreground: 143 53% 95%;
 
-  --primary: 239 84% 67%;
-  --primary-foreground: 222 47% 11%;
+  --primary: 156 53% 60%;
+  --primary-foreground: 164 67% 13%;
 
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 40% 96%;
+  --secondary: 163 40% 17%;
+  --secondary-foreground: 143 53% 95%;
 
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 65%;
+  --muted: 163 40% 17%;
+  --muted-foreground: 146 20% 69%;
 
-  --accent: 142 71% 45%;
-  --accent-foreground: 222 47% 11%;
+  --accent: 156 53% 60%;
+  --accent-foreground: 164 67% 13%;
 
   --destructive: 0 91% 71%;
   --destructive-foreground: 222 47% 11%;
 
-  --border: 217 33% 20%;
-  --input: 217 33% 20%;
-  --ring: 239 84% 67%;
+  --border: 162 26% 24%;
+  --input: 162 26% 24%;
+  --ring: 156 53% 60%;
 }
 
 * {
@@ -107,3 +107,20 @@ select {
     background: #fff;
   }
 }
+
+/* Sign-in keeps its light editorial surface even when the dashboard is in dark mode. */
+.edvuno-login input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']) { background:#fff; color:#0c382d; }
+.edvuno-login input::placeholder { color:#668477; }
+
+.edvuno-sidebar { background-image: linear-gradient(180deg, rgba(221,248,233,.3), transparent 220px); }
+.dark .edvuno-sidebar { background-image: linear-gradient(180deg, rgba(101,205,165,.06), transparent 220px); }
+
+body:has(.edvuno-login) button[aria-label="Toggle chat"] { display:none; }
+
+.edvuno-auth { color:#0c382d; }
+.edvuno-auth h1, .edvuno-auth label { color:#0c382d; }
+.edvuno-auth p.text-slate-400, .edvuno-auth .text-slate-400 { color:#4d6f61; }
+.edvuno-auth .text-slate-300, .edvuno-auth a.text-slate-300 { color:#166B55; }
+.edvuno-auth input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']) { background:#fff; color:#0c382d; border-color:#b9dcc9; }
+.edvuno-auth input::placeholder { color:#668477; }
+body:has(.edvuno-auth) button[aria-label="Toggle chat"] { display:none; }

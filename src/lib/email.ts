@@ -65,7 +65,7 @@ export async function sendNotification(subject: string, html: string, organizati
   try {
     const to = await getAlertRecipients(organizationId)
     await transporter.sendMail({
-      from: `"Student Portal" <${process.env.EMAIL_USER || 'nobiun@163.com'}>`,
+      from: `"EDVUNO Portal" <${process.env.EMAIL_USER || 'nobiun@163.com'}>`,
       to,
       subject,
       html,
@@ -138,7 +138,7 @@ export async function sendMail(
       // All orgs currently send through this one shared mailbox (no
       // per-org SMTP yet), so the display name has to stay neutral rather
       // than naming any one tenant.
-      from: `"Student Portal" <${process.env.EMAIL_USER || 'nobiun@163.com'}>`,
+      from: `"EDVUNO Portal" <${process.env.EMAIL_USER || 'nobiun@163.com'}>`,
       to,
       subject,
       html,
@@ -258,15 +258,15 @@ const LIFECYCLE_WRAP = (inner: string) => `
   <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#1e293b;max-width:560px;">
     ${inner}
     <p style="margin:24px 0 0;font-size:13px;color:#64748b;">
-      — Student Portal &middot;
-      <a href="https://portal.edvuno.top" style="color:#4f46e5;text-decoration:none;">portal.edvuno.top</a>
+      — EDVUNO Portal &middot;
+      <a href="https://portal.edvuno.top" style="color:#166B55;text-decoration:none;">portal.edvuno.top</a>
     </p>
   </div>
 `
 
 const LIFECYCLE_BUTTON = (label: string, href: string) => `
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0;">
-    <tr><td bgcolor="#4f46e5" style="border-radius:10px;">
+    <tr><td bgcolor="#166B55" style="border-radius:10px;">
       <a href="${href}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">${label}</a>
     </td></tr>
   </table>

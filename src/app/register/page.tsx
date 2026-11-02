@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { GraduationCap, Loader2, ArrowLeft, AlertTriangle } from 'lucide-react'
+import { Loader2, ArrowLeft, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { LanguageToggle } from '@/src/components/LanguageToggle'
@@ -65,22 +65,20 @@ function RegisterForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden py-10">
+    <div className="edvuno-auth min-h-screen flex items-center justify-center bg-[#f4fbf6] relative overflow-hidden py-10">
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl" />
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-violet-600/20 rounded-full blur-3xl" />
       </div>
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
+      <div className="absolute inset-0 bg-[url('/brand/brand-pattern.svg')] bg-cover bg-center opacity-[.08]" />
 
       <div className="max-w-md w-full relative z-10">
         <div className="flex justify-end mb-4">
-          <LanguageToggle className="!bg-white/5 !border-white/10 !text-slate-300 hover:!bg-white/10" />
+          <LanguageToggle className="!bg-white !border-[#cfe9da] !text-[#166B55] hover:!bg-[#ddf8e9]" />
         </div>
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
+        <div className="bg-white border border-[#cfe9da] rounded-2xl p-8 shadow-[0_24px_70px_-45px_#166B55]">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl mb-5 shadow-lg shadow-indigo-500/25">
-              <GraduationCap className="w-8 h-8 text-white" />
-            </div>
+            <img src="/brand/brand-logo-light.svg" alt="EDVUNO" className="mx-auto mb-5 h-auto w-32" />
             <h1 className="text-2xl font-bold text-white tracking-tight">{t('login.registerTitle')}</h1>
             <p className="text-slate-400 mt-1 text-sm">
               {organizationName ? `${t('login.registerJoining')} ${organizationName}` : t('login.registerSubtitle')}

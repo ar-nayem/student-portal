@@ -10,7 +10,7 @@ export interface EmailTemplate {
   html: string
 }
 
-const BRAND = '#4f46e5'
+const BRAND = '#166B55'
 
 // Buttons are padded anchors inside a bgcolor table cell — the portable
 // pattern that still renders as a button in Outlook.
@@ -19,8 +19,8 @@ function button(label: string, href: string, bg = BRAND, color = '#ffffff') {
 }
 
 const FEATURE_ROWS = [
-  ['#4f46e5', 'University portals, checked automatically', 'Connect the portals you already use. Get an email the moment a status changes, instead of logging in to look.'],
-  ['#7c3aed', 'Students upload their own documents', "Send one link. You decide what's required; you see at a glance what's still missing."],
+  ['#166B55', 'University portals, checked automatically', 'Connect the portals you already use. Get an email the moment a status changes, instead of logging in to look.'],
+  ['#65CDA5', 'Students upload their own documents', "Send one link. You decide what's required; you see at a glance what's still missing."],
   ['#0ea5e9', 'One record per applicant', 'Passport, education, work history, family, sponsors and every file — not eleven spreadsheet tabs.'],
   ['#059669', 'Money tracked per student', 'Income, expenses, printable receipts, and an export whenever your accountant asks.'],
   ['#d97706', 'Your team, properly separated', 'Agents see their own students. You see everything. Sensitive documents stay restricted.'],
@@ -34,13 +34,13 @@ const FEATURE_ROWS = [
 const LAUNCH = `<div style="background:#f1f5f9;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;">
 <tr><td style="background:${BRAND};padding:22px 32px;">
-<a href="https://portal.edvuno.top" style="text-decoration:none;color:#ffffff;font-size:19px;font-weight:700;">Student Portal</a>
+<a href="https://portal.edvuno.top" style="text-decoration:none;color:#ffffff;font-size:19px;font-weight:700;">EDVUNO Portal</a>
 <div style="color:#c7d2fe;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;margin-top:3px;">For study-abroad agencies</div>
 </td></tr>
 <tr><td style="padding:36px 32px 8px;">
 <div style="display:inline-block;background:#eef2ff;color:#4338ca;font-size:12px;font-weight:700;padding:6px 12px;border-radius:99px;margin-bottom:18px;">7-DAY FREE TRIAL &middot; NO CARD REQUIRED</div>
 <h1 style="margin:0 0 14px;font-size:29px;line-height:1.2;color:#0f172a;font-weight:700;">Run {{organization}}<br>from one place</h1>
-<p style="margin:0 0 26px;font-size:16px;line-height:1.6;color:#475569;">Hi {{firstName}} — how many university portals did your team log into this week, just to check whether a student's status changed? Student Portal does that for you, along with documents, applications, finance and your team.</p>
+<p style="margin:0 0 26px;font-size:16px;line-height:1.6;color:#475569;">Hi {{firstName}} — how many university portals did your team log into this week, just to check whether a student's status changed? EDVUNO Portal does that for you, along with documents, applications, finance and your team.</p>
 </td></tr>
 <tr><td style="padding:0 32px 30px;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
@@ -64,14 +64,14 @@ ${button('Create your free account', 'https://portal.edvuno.top/signup')}
 </td></tr>
 <tr><td style="background:#0f172a;padding:24px 32px;">
 <div style="font-size:14px;color:#e2e8f0;margin-bottom:6px;">Questions? Just reply to this email — it comes straight to me.</div>
-<div style="font-size:13px;color:#94a3b8;">Nayem &middot; <a href="https://portal.edvuno.top" style="color:#a5b4fc;text-decoration:none;">portal.edvuno.top</a></div>
+<div style="font-size:13px;color:#94a3b8;">EDVUNO &middot; <a href="https://portal.edvuno.top" style="color:#65CDA5;text-decoration:none;">portal.edvuno.top</a></div>
 </td></tr>
 </table></div>`
 
 const UPDATE = `<div style="background:#f1f5f9;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;">
 <tr><td style="background:${BRAND};padding:20px 32px;">
-<a href="https://portal.edvuno.top" style="text-decoration:none;color:#ffffff;font-size:18px;font-weight:700;">Student Portal</a>
+<a href="https://portal.edvuno.top" style="text-decoration:none;color:#ffffff;font-size:18px;font-weight:700;">EDVUNO Portal</a>
 </td></tr>
 <tr><td style="padding:32px 32px 10px;">
 <div style="display:inline-block;background:#ecfdf5;color:#047857;font-size:12px;font-weight:700;padding:6px 12px;border-radius:99px;margin-bottom:16px;">NEW</div>
@@ -84,7 +84,7 @@ const UPDATE = `<div style="background:#f1f5f9;padding:24px 12px;font-family:-ap
 </td></tr>
 <tr><td style="padding:14px 32px 34px;text-align:center;">${button('Open your portal', 'https://portal.edvuno.top/login')}</td></tr>
 <tr><td style="background:#0f172a;padding:20px 32px;">
-<div style="font-size:13px;color:#94a3b8;">Nayem &middot; <a href="https://portal.edvuno.top" style="color:#a5b4fc;text-decoration:none;">portal.edvuno.top</a></div>
+<div style="font-size:13px;color:#94a3b8;">EDVUNO &middot; <a href="https://portal.edvuno.top" style="color:#65CDA5;text-decoration:none;">portal.edvuno.top</a></div>
 </td></tr>
 </table></div>`
 
@@ -92,7 +92,7 @@ const PLAIN = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe U
 <p style="margin:0 0 16px;">Hi {{firstName}},</p>
 <p style="margin:0 0 16px;">Write your message here. A plain note like this often gets a better reply rate than a designed one — it reads like a person wrote it.</p>
 <p style="margin:0 0 16px;">Just reply if you'd like me to walk you through it.</p>
-<p style="margin:0;">— Nayem<br><a href="https://portal.edvuno.top" style="color:${BRAND};text-decoration:none;">portal.edvuno.top</a></p>
+<p style="margin:0;">— EDVUNO<br><a href="https://portal.edvuno.top" style="color:${BRAND};text-decoration:none;">portal.edvuno.top</a></p>
 </div>`
 
 export const EMAIL_TEMPLATES: EmailTemplate[] = [
@@ -107,7 +107,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     id: 'update',
     name: 'Feature update',
     description: 'Short "what\'s new" note for existing customers',
-    subject: "What's new in Student Portal",
+    subject: "What's new in EDVUNO Portal",
     html: UPDATE,
   },
   {

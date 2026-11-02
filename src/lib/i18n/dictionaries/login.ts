@@ -1,5 +1,5 @@
 export const en = {
-  title: 'Student Portal',
+  title: 'EDVUNO Portal',
   subtitle: 'Student Application Management',
   emailOrUsername: 'Email or Username',
   emailPlaceholder: 'Enter your email or username',
@@ -11,7 +11,7 @@ export const en = {
   invalidCredentials: 'Invalid email/username or password',
   somethingWrong: 'Something went wrong',
   contactSupport: 'Contact Support',
-  footer: 'Student Portal v1.0',
+  footer: 'EDVUNO Portal v1.0',
   forgotPassword: 'Forgot password?',
   forgotPasswordTitle: 'Reset your password',
   forgotPasswordSubtitle: 'Enter your email and we\'ll send you a verification code',

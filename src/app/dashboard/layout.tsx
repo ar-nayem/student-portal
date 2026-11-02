@@ -37,8 +37,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Neutral until the real org's branding loads — never another org's name,
   // even for the split second before the client-side fetch below resolves.
-  const [ownerOrg, setOwnerOrg] = useState<OrgData>({ name: 'Student Portal', logo: null })
-  const [userOrg, setUserOrg] = useState<OrgData>({ name: 'Student Portal', logo: null })
+  const [ownerOrg, setOwnerOrg] = useState<OrgData>({ name: 'EDVUNO', logo: null })
+  const [userOrg, setUserOrg] = useState<OrgData>({ name: 'EDVUNO', logo: null })
   const [myAvatar, setMyAvatar] = useState<string | null>(null)
   const [myProfile, setMyProfile] = useState<{ name: string; email: string; canViewPortals: boolean } | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -103,7 +103,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // own — skip the org-branding fetch entirely rather than showing a
     // fallback that looks like one specific tenant's name.
     if (isSuperDeveloper) {
-      setOwnerOrg({ name: t('platform.title'), logo: null })
+      setOwnerOrg({ name: 'EDVUNO', logo: null })
       return
     }
     // Fetch owner's org for company branding
@@ -111,7 +111,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .then(r => r.json())
       .then(data => {
         if (data) {
-          setOwnerOrg({ name: data.name || 'Student Portal', logo: data.logo || null })
+          setOwnerOrg({ name: data.name || 'EDVUNO', logo: data.logo || null })
         }
       })
       .catch(() => {})
@@ -271,7 +271,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         >
           <Menu className="w-5 h-5" />
         </button>
-        <span className="font-bold text-foreground text-sm truncate">{ownerOrg.name}</span>
+        <span className="flex items-center gap-2 font-bold text-foreground text-sm truncate"><img src="/brand/brand-icon.svg" alt="" className="h-7 w-7" />EDVUNO</span>
         <div className="flex items-center gap-2 shrink-0">
           <ThemeToggle />
           <LanguageToggle />
@@ -289,7 +289,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Sidebar */}
         <aside
-          className={`no-print w-64 ${collapsed ? 'lg:w-20' : 'lg:w-64'} bg-card border-r border-border fixed inset-y-0 left-0 z-40 flex flex-col shadow-sm transform transition-all duration-200 ease-in-out lg:translate-x-0 ${
+          className={`no-print w-64 ${collapsed ? 'lg:w-20' : 'lg:w-64'} edvuno-sidebar bg-card border-r border-border fixed inset-y-0 left-0 z-40 flex flex-col shadow-sm transform transition-all duration-200 ease-in-out lg:translate-x-0 ${
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
@@ -302,32 +302,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
           </button>
 
-          {/* Company Logo - Owner's branding */}
+          {/* EDVUNO identity and current organization context */}
           <div className={`p-5 border-b border-border shrink-0 ${collapsed ? 'lg:px-3' : ''}`}>
-            <div className={`flex items-center gap-2 ${collapsed ? 'lg:justify-center' : 'justify-between'}`}>
-              <Link href="/dashboard" className={`flex items-center gap-3 group min-w-0 ${collapsed ? 'lg:justify-center' : ''}`}>
-                {ownerOrg.logo ? (
-                  <div className="w-10 h-10 rounded-xl overflow-hidden border border-border bg-card flex items-center justify-center shrink-0">
-                    <img src={ownerOrg.logo} alt="Logo" className="w-full h-full object-contain p-0.5" />
-                  </div>
-                ) : (
-                  <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow shrink-0">
-                    <GraduationCap className="w-6 h-6 text-white" />
-                  </div>
-                )}
-                <div className={`min-w-0 ${collapsed ? 'lg:hidden' : ''}`}>
-                  <h1 className="font-bold text-foreground text-lg tracking-tight truncate">{ownerOrg.name}</h1>
-                  <p className="text-[11px] text-muted-foreground font-medium tracking-wider uppercase">{t('nav.studentPortal')}</p>
-                </div>
+            <div className="flex items-start justify-between gap-2">
+              <Link href="/dashboard" className={`group min-w-0 ${collapsed ? 'lg:mx-auto' : ''}`} aria-label="EDVUNO dashboard">
+                <img src="/brand/brand-logo-dark.svg" alt="EDVUNO" className={`h-auto object-contain object-left dark:hidden ${collapsed ? 'w-10' : 'w-32'}`} />
+                <img src="/brand/brand-logo-light.svg" alt="EDVUNO" className={`hidden h-auto object-contain object-left dark:block ${collapsed ? 'w-10' : 'w-32'}`} />
               </Link>
-              <button
-                onClick={() => setMobileOpen(false)}
-                className="lg:hidden p-1.5 rounded-lg text-muted-foreground hover:bg-muted shrink-0"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={() => setMobileOpen(false)} className="lg:hidden p-1.5 rounded-lg text-muted-foreground hover:bg-muted shrink-0" aria-label="Close menu"><X className="w-5 h-5" /></button>
             </div>
-            <div className={`mt-3 flex items-center gap-2 ${collapsed ? 'lg:flex-col' : ''}`}>
+            {!collapsed && <p className="mt-3 text-xs font-medium text-muted-foreground truncate">{isSuperDeveloper ? 'Website & platform management' : ownerOrg.name}</p>}
+            <div className={`mt-4 flex items-center gap-2 ${collapsed ? 'lg:flex-col' : ''}`}>
               <LanguageToggle className={`flex-1 justify-center ${collapsed ? 'lg:hidden' : ''}`} />
               <LanguageToggle iconOnly className={collapsed ? 'hidden lg:flex' : 'hidden'} />
               <ThemeToggle />

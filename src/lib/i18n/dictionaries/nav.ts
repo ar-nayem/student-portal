@@ -1,5 +1,5 @@
 export const en = {
-  studentPortal: 'Student Portal',
+  studentPortal: 'EDVUNO Portal',
   dashboard: 'Dashboard',
   allStudents: 'All Students',
   myStudents: 'My Students',

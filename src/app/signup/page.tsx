@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { GraduationCap, Loader2, ArrowRight, Check } from 'lucide-react'
+import { Loader2, ArrowRight, Check } from 'lucide-react'
 import { TRIAL_DAYS } from '@/src/lib/trial'
 
 export default function SignupPage() {
@@ -70,10 +70,7 @@ export default function SignupPage() {
       <header className="border-b border-border/60">
         <div className="mx-auto max-w-6xl px-5 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center">
-              <GraduationCap className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-bold tracking-tight">Student Portal</span>
+            <img src="/brand/brand-logo-dark.svg" alt="EDVUNO" className="h-auto w-28 dark:hidden" /><img src="/brand/brand-logo-light.svg" alt="EDVUNO" className="hidden h-auto w-28 dark:block" />
           </Link>
           <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground transition">
             Already have an account?
