@@ -98,6 +98,9 @@ export async function POST(req: NextRequest) {
     if (!receiverId || (!content && !attachmentUrl)) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
+    if (attachmentUrl != null && (typeof attachmentUrl !== 'string' || !/^\/uploads\/messages\/[A-Za-z0-9][A-Za-z0-9._-]{0,180}$/.test(attachmentUrl))) {
+      return NextResponse.json({ error: 'Invalid message attachment URL' }, { status: 400 })
+    }
     if (studentId != null && typeof studentId !== 'string') {
       return NextResponse.json({ error: 'Invalid student ID' }, { status: 400 })
     }

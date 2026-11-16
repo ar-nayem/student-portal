@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    const uploadDir = join(process.cwd(), 'public', 'uploads')
+    const uploadDir = join(process.cwd(), 'public', 'uploads', 'messages')
     await mkdir(uploadDir, { recursive: true })
 
     const rawExt = file.name.split('.').pop() || ''
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     await writeFile(join(uploadDir, filename), buffer)
 
     return NextResponse.json({
-      url: `/uploads/${filename}`,
+      url: `/uploads/messages/${filename}`,
       name: file.name,
       type: attachmentType,
       size: file.size,

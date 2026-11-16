@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 
-PUBLIC_ASSET_DIRS = {'universities', 'website'}
+PUBLIC_ASSET_DIRS = {'universities', 'website', 'messages'}
 
 
 def file_digest(path):
@@ -69,10 +69,32 @@ def verified_move(source, destination, has_destination):
                 os.fsync(temp.fileno())
                 if file_digest(source) != file_digest(temp_path):
                     raise ValueError(f'Copy verification failed: {source.name}')
-                temp_path.replace(destination)
+                # link() is atomic and fails if a competing/case-folded name
+                # already exists. Never replace a destination during cutover.
+                os.link(temp_path, destination)
             finally:
                 temp_path.unlink(missing_ok=True)
+    elif file_digest(source) != file_digest(destination):
+        raise ValueError(f'Existing destination changed before source removal: {source.name}')
     source.unlink()
+
+
+def inspect_preserved_tree(directory):
+    """Return all regular files below a preserved public asset directory."""
+    files = []
+    for current, directories, names in os.walk(directory, topdown=True, followlinks=False):
+        current_path = Path(current)
+        for name in list(directories):
+            entry = current_path / name
+            mode = entry.lstat().st_mode
+            if stat.S_ISLNK(mode) or not stat.S_ISDIR(mode):
+                raise ValueError(f'Unsafe entry in preserved public asset tree: {entry}')
+        for name in names:
+            entry = current_path / name
+            if not regular_file(entry):
+                raise ValueError(f'Unsafe entry in preserved public asset tree: {entry}')
+            files.append(entry)
+    return files
 
 
 def move_files(database, root, apply):
@@ -87,20 +109,32 @@ def move_files(database, root, apply):
 
     with sqlite3.connect(f'{database.as_uri()}?mode=ro', uri=True) as conn:
         filenames = {row[0] for row in conn.execute('SELECT DISTINCT filename FROM Document')}
-        message_names = set()
+        message_urls = set()
         for (url,) in conn.execute('SELECT DISTINCT attachmentUrl FROM Message WHERE attachmentUrl IS NOT NULL'):
             parsed = urlsplit(url)
             path = unquote(parsed.path)
             if not parsed.scheme and not parsed.netloc and path.startswith('/uploads/'):
-                name = path.removeprefix('/uploads/')
-                if valid_filename(name):
-                    message_names.add(name)
+                message_urls.add(path)
 
     entries = {entry.name: entry for entry in public.iterdir()} if public.exists() else {}
     documented_moves = []
     quarantine_moves = []
     already_private = 0
     problems = []
+    preserved_files = []
+    for asset_name in sorted(PUBLIC_ASSET_DIRS):
+        asset_dir = public / asset_name
+        if asset_dir.exists() or asset_dir.is_symlink():
+            try:
+                mode = asset_dir.lstat().st_mode
+                if stat.S_ISLNK(mode) or not stat.S_ISDIR(mode):
+                    raise ValueError(f'Unsafe preserved public asset path: {asset_dir}')
+                if overlaps(asset_dir.resolve(), private) or overlaps(asset_dir.resolve(), quarantine):
+                    raise ValueError(f'Public asset directory overlaps private storage or quarantine: {asset_dir}')
+                preserved_files.extend(inspect_preserved_tree(asset_dir))
+            except (OSError, ValueError) as error:
+                problems.append(str(error))
+    preserved_inodes = {(path.stat().st_dev, path.stat().st_ino) for path in preserved_files}
 
     def plan_move(source, destination, moves):
         has_destination = regular_file(destination)
@@ -125,28 +159,23 @@ def move_files(database, root, apply):
                 continue
             if name not in entries:
                 raise ValueError(f'Document name aliases a public file with a different name: {name}')
-            if name in message_names:
-                raise ValueError(f'Filename is also referenced by a message: {name}')
+            if (source.stat().st_dev, source.stat().st_ino) in preserved_inodes:
+                raise ValueError(f'Student document has a hard-link alias in a preserved public asset tree: {name}')
             plan_move(source, destination, documented_moves)
         except ValueError as error:
             problems.append(str(error))
-
-    for name in sorted(message_names - entries.keys()):
-        if (public / name).exists():
-            problems.append(f'Message attachment aliases a public file with a different name: {name}')
 
     for name, source in sorted(entries.items()):
         if name in filenames:
             continue
         try:
             if name in PUBLIC_ASSET_DIRS and source.is_dir() and not source.is_symlink():
-                if any(overlaps(source.resolve(), destination) for destination in (private, quarantine)):
-                    raise ValueError(f'Public asset directory overlaps private storage or quarantine: {source}')
                 continue
             if not regular_file(source):
                 raise ValueError(f'Public upload disappeared during inventory: {source}')
-            if name not in message_names:
-                plan_move(source, quarantine / name, quarantine_moves)
+            if (source.stat().st_dev, source.stat().st_ino) in preserved_inodes:
+                raise ValueError(f'Unidentified upload has a hard-link alias in a preserved public asset tree: {name}')
+            plan_move(source, quarantine / name, quarantine_moves)
         except ValueError as error:
             problems.append(str(error))
 
@@ -154,6 +183,9 @@ def move_files(database, root, apply):
           f'{already_private} documents already private, {len(problems)} unresolved.')
     for source, _, _ in quarantine_moves:
         print(f'Quarantine: {source.name}')
+    for url in sorted(message_urls):
+        if '/' not in url.removeprefix('/uploads/'):
+            print(f'Legacy message URL requires review/re-upload before cutover: {url}')
     if problems:
         for problem in problems:
             print(problem)
