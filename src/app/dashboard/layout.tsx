@@ -21,11 +21,21 @@ interface OrgData {
   logo: string | null
 }
 
+interface OrganizationAccess {
+  organizationId: string
+  state: string
+  isTrial?: boolean
+  daysLeft?: number | null
+  suspendedReason?: string | null
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { data: session, update } = useSession()
   const { t } = useLanguage()
   const { has: hasFeature } = useFeatures()
+  const userId = session?.user?.id
+  const organizationId = session?.user?.organizationId
   const role = session?.user?.role
   const isAdmin = role === 'ADMIN' || role === 'OWNER'
   const isOwner = role === 'OWNER'
@@ -47,10 +57,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Subscription/trial state. Null until checked — the dashboard renders
   // normally in the meantime rather than flashing a lockout screen at
   // everyone on every page load.
-  const [accessState, setAccessState] = useState<{
-    state: string; organizationName?: string; isTrial?: boolean
-    accessExpiresAt?: string | null; daysLeft?: number | null; suspendedReason?: string | null
-  } | null>(null)
+  const [accessResult, setAccessResult] = useState<{ userId: string; data: OrganizationAccess } | null>(null)
+  const accessState = accessResult && !isImpersonating
+    && accessResult.userId === userId && accessResult.data.organizationId === organizationId
+    ? accessResult.data
+    : null
   const [exitingImpersonation, setExitingImpersonation] = useState(false)
   // Desktop-only icon-rail mode. Persisted so it survives navigation/reload;
   // read from localStorage after mount to avoid an SSR/client markup mismatch.
@@ -93,12 +104,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // (profile included) stops answering once access lapses, so the check that
   // explains the lockout has to sit outside that gate.
   useEffect(() => {
-    if (!session?.user?.id) return
-    fetch('/api/organization/access', { credentials: 'include' })
+    setAccessResult(null)
+    if (!userId || !organizationId || isImpersonating) return
+
+    const controller = new AbortController()
+    fetch('/api/organization/access', { credentials: 'include', signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => data && setAccessState(data))
+      .then((data: OrganizationAccess | null) => {
+        if (!controller.signal.aborted && data?.organizationId === organizationId) {
+          setAccessResult({ userId, data })
+        }
+      })
       .catch(() => {})
-  }, [session?.user?.id, session?.user?.impersonatingOrgId])
+    return () => controller.abort()
+  }, [userId, organizationId, isImpersonating])
 
   useEffect(() => {
     // A genuine (non-impersonating) platform operator has no org of their

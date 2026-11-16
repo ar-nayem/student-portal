@@ -5,7 +5,10 @@ import { getEffectiveUser } from '@/src/lib/session'
 import { canManageSiteContent } from '@/src/lib/siteContentAccess'
 import { validateSiteContent } from '@/src/lib/siteContent'
 
-async function allowed(req: NextRequest) { return canManageSiteContent(await getEffectiveUser(req)) }
+async function allowed(req: NextRequest) {
+  const platformOnly = req.nextUrl.pathname.startsWith('/api/platform/')
+  return canManageSiteContent(await getEffectiveUser(req), { platformOnly })
+}
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   if (!await allowed(req)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   try {

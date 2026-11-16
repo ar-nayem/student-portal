@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
       where: { id: user.organizationId },
       select: { name: true, status: true, accessExpiresAt: true, isTrial: true, suspendedReason: true },
     })
-    if (!org) return NextResponse.json({ state: 'MISSING' })
+    if (!org) return NextResponse.json({ organizationId: user.organizationId, state: 'MISSING' })
 
     const expiresAt = org.accessExpiresAt
     const msLeft = expiresAt ? expiresAt.getTime() - Date.now() : null
@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
         : 'OK'
 
     return NextResponse.json({
+      organizationId: user.organizationId,
       state,
       organizationName: org.name,
       isTrial: org.isTrial,
