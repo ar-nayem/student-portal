@@ -54,11 +54,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (existing.updatedAt.getTime() !== updatedAt.getTime()) return { kind: 'stale' as const }
 
       let university = null
-      if (universityId !== undefined && universityId !== null) {
+      const preserveUniversitySnapshot = universityId === undefined || (universityId !== null && universityId === existing.universityId)
+      if (universityId !== undefined && universityId !== null && universityId !== existing.universityId) {
         university = await tx.university.findFirst({ where: { id: universityId as string, organizationId: orgId }, select: { id: true, name: true } })
         if (!university) return { kind: 'university' as const }
-      } else if (universityId === undefined && existing.universityId) {
-        university = await tx.university.findFirst({ where: { id: existing.universityId, organizationId: orgId }, select: { id: true, name: true } })
       }
 
       const nextStage = value.stage as string | undefined ?? existing.stage
@@ -66,10 +65,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ? (customStageLabel !== undefined ? customStageLabel : existing.customStageLabel)
         : null
       if (nextStage === 'OTHER' && !nextCustomLabel) return { kind: 'label' as const }
-      const nextUniversityId = universityId === undefined ? existing.universityId : university?.id ?? null
+      const nextUniversityId = preserveUniversitySnapshot ? existing.universityId : university?.id ?? null
       const nextUniversityName = university
         ? university.name
-        : (universityName ?? existing.universityName)
+        : (preserveUniversitySnapshot ? existing.universityName : universityName ?? existing.universityName)
       const stageChanged = nextStage !== existing.stage || nextCustomLabel !== existing.customStageLabel
       const changedAt = new Date(Math.max(Date.now(), existing.updatedAt.getTime() + 1))
 

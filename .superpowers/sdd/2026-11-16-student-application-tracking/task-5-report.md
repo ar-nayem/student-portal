@@ -19,3 +19,7 @@ Date: 2026-11-17
 ## Review status
 
 Independent review is pending. No live database migration or deployment was performed.
+
+## Review follow-up
+
+- Preserved the saved university-name snapshot when an update retains the same catalog link (or omits a catalog change). Selecting a different catalog university refreshes the snapshot; switching to typed text saves the entered name.
