@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer'
 import { prisma } from './prisma'
+import type { ReviewDecision } from './studentReview'
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
@@ -18,7 +19,7 @@ const emailConfigured = !!process.env.EMAIL_PASS && process.env.EMAIL_PASS !== '
 const DEVELOPER_EMAIL = process.env.DEVELOPER_ALERT_EMAIL || '15329802848@163.com'
 
 // organizationId scopes who hears about an event — a new student submission
-// or status change at org B must never email org A's people. Pass null only
+// at org B must never email org A's people. Pass null only
 // for genuinely platform-level events with no specific org (falls back to
 // the developer inbox alone).
 async function getAlertRecipients(organizationId: string | null): Promise<string[]> {
@@ -239,13 +240,28 @@ export function studentSubmissionTemplate(agentName: string, studentName: string
   `
 }
 
-export function statusUpdateTemplate(studentName: string, status: string, adminName: string) {
-  return `
-    <h2>Student Status Updated</h2>
-    <p><strong>Student:</strong> ${studentName}</p>
-    <p><strong>Status:</strong> ${status}</p>
-    <p><strong>Updated by:</strong> ${adminName}</p>
-  `
+export function statusUpdateTemplate(studentName: string, status: ReviewDecision, adminName: string) {
+  const labels: Record<ReviewDecision, string> = {
+    APPROVED: 'Approved',
+    REJECTED: 'Rejected',
+    NEEDS_REVISION: 'Needs revision',
+  }
+  const escapeText = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const label = labels[status]
+  const instructions = status === 'NEEDS_REVISION'
+    ? 'Open the student record to read the reviewer’s note, upload the requested documents, and resubmit for review.'
+    : 'Open the student record to see the decision in Review history.'
+
+  return {
+    subject: `Student document review: ${label}`,
+    html: `
+      <h2>Student Document Review</h2>
+      <p><strong>Student:</strong> ${escapeText(studentName)}</p>
+      <p><strong>Decision:</strong> ${label}</p>
+      <p><strong>Reviewed by:</strong> ${escapeText(adminName)}</p>
+      <p>${instructions}</p>
+    `,
+  }
 }
 
 // ---------------------------------------------------------------------------

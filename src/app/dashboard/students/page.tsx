@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   Search, Filter, Download, Eye, FileText, Trash2,
-  CheckCircle, XCircle, Clock, UserCheck, Link2, Copy, Check, RefreshCw, X, Loader2
+  CheckCircle, XCircle, Clock, FileWarning, UserCheck, Link2, Copy, Check, RefreshCw, X, Loader2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
@@ -202,7 +202,8 @@ function StudentsPageInner() {
     const styles: Record<string, string> = {
       PENDING: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200',
       APPROVED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200',
-      REJECTED: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border-rose-200'
+      REJECTED: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border-rose-200',
+      NEEDS_REVISION: 'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300 border-orange-200',
     }
     return styles[s] || 'bg-muted text-foreground border-border'
   }
@@ -212,6 +213,7 @@ function StudentsPageInner() {
       PENDING: t('common.statusPending'),
       APPROVED: t('common.statusApproved'),
       REJECTED: t('common.statusRejected'),
+      NEEDS_REVISION: t('students.needsRevision'),
     }
     return labels[s] || s
   }
@@ -219,6 +221,7 @@ function StudentsPageInner() {
   const getStatusIcon = (s: string) => {
     if (s === 'APPROVED') return <CheckCircle className="w-3.5 h-3.5" />
     if (s === 'REJECTED') return <XCircle className="w-3.5 h-3.5" />
+    if (s === 'NEEDS_REVISION') return <FileWarning className="w-3.5 h-3.5" />
     return <Clock className="w-3.5 h-3.5" />
   }
 
@@ -285,6 +288,7 @@ function StudentsPageInner() {
               <option value="PENDING">{t('common.statusPending')}</option>
               <option value="APPROVED">{t('common.statusApproved')}</option>
               <option value="REJECTED">{t('common.statusRejected')}</option>
+              <option value="NEEDS_REVISION">{t('students.needsRevision')}</option>
             </select>
           </div>
 
