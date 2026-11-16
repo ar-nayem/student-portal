@@ -7,9 +7,8 @@ import AdminDashboard from './AdminDashboard'
 export default async function AdminPage() {
   const session = await getServerSession(authConfig) as any
 
-  if (!session?.user || (session.user.role !== 'ADMIN' && session.user.role !== 'OWNER')) {
-    redirect('/login')
-  }
+  if (!session?.user) redirect('/login')
+  if (session.user.role !== 'ADMIN' && session.user.role !== 'OWNER') redirect('/dashboard')
 
   // session.user.organizationId is already the *active* org (the impersonated
   // one, if a SUPER_DEVELOPER is impersonating — see auth.ts's session
@@ -17,10 +16,6 @@ export default async function AdminPage() {
   // this page (their role is 'SUPER_DEVELOPER', not 'ADMIN'/'OWNER', unless
   // impersonating, in which case organizationId is the impersonated org's).
   const organizationId = session.user.organizationId as string | null
-  // Never bounce back to /dashboard here — that page redirects OWNER/ADMIN
-  // straight back to this one, so a null organizationId would loop forever.
-  // /login is a dead end that also forces a fresh session (see auth.ts's
-  // jwt callback self-heal) if this was ever caused by a stale token.
   if (!organizationId) redirect('/login')
 
   const [agentsCount, studentsCount, pendingCount, recentStudents] = await Promise.all([
