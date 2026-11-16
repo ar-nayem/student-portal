@@ -10,6 +10,7 @@ import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { formatMoney } from '@/src/lib/money'
 import { StudentAssignmentForm, useAssignableAgents } from '@/src/components/StudentAssignmentForm'
 import { readReviewHistoryDetails, reviewDecisionsFor, type ReviewDecision } from '@/src/lib/studentReview'
+import { ApplicationsPanel } from './applications-panel'
 
 type ReviewHistoryEntry = {
   id: string
@@ -372,6 +373,11 @@ export default function StudentDetailPage() {
               <p className="text-sm text-muted-foreground">{student.notes}</p>
             </Section>
           )}
+          <ApplicationsPanel
+            studentId={student.id}
+            canManage={isAdmin}
+            canCreate={student.status !== 'PENDING' || (student.reviewHistory?.length ?? 0) > 0}
+          />
         </div>
 
         {/* Review, finance and documents */}
