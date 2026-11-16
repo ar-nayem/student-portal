@@ -122,6 +122,7 @@ def move_files(database, root, apply):
     already_private = 0
     problems = []
     preserved_files = []
+    existing_storage_inodes = set()
     for asset_name in sorted(PUBLIC_ASSET_DIRS):
         asset_dir = public / asset_name
         if asset_dir.exists() or asset_dir.is_symlink():
@@ -139,8 +140,21 @@ def move_files(database, root, apply):
                                  (quarantine, 'existing quarantine storage')):
         try:
             for stored_file in inspect_regular_tree(storage_path, label):
-                if (stored_file.stat().st_dev, stored_file.stat().st_ino) in preserved_inodes:
+                stored_inode = (stored_file.stat().st_dev, stored_file.stat().st_ino)
+                if stored_inode in preserved_inodes:
                     problems.append(f'Hard-link alias between preserved public asset and {label}: {stored_file}')
+                existing_storage_inodes.add(stored_inode)
+        except (OSError, ValueError) as error:
+            problems.append(str(error))
+
+    for name, public_file in sorted(entries.items()):
+        if name in PUBLIC_ASSET_DIRS and public_file.is_dir() and not public_file.is_symlink():
+            continue
+        try:
+            if regular_file(public_file):
+                public_inode = (public_file.stat().st_dev, public_file.stat().st_ino)
+                if public_inode in existing_storage_inodes:
+                    problems.append(f'Public upload aliases an existing private or quarantine file: {public_file}')
         except (OSError, ValueError) as error:
             problems.append(str(error))
 
