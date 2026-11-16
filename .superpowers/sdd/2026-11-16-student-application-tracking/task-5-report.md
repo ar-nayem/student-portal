@@ -14,11 +14,16 @@ Date: 2026-11-17
 ## Checks
 
 - `npx tsc --noEmit --incremental false` passed.
+- `NEXT_TELEMETRY_DISABLED=1 NEXTAUTH_SECRET=<temporary build-only value> npm run build` passed. The first build attempt stopped during page-data collection because this local checkout has no `NEXTAUTH_SECRET`; the successful rerun used a temporary process environment value, not a saved or production secret.
 - No automated tests or production changes were made.
 
 ## Review status
 
-Independent review is pending. No live database migration or deployment was performed.
+Independent review approved the API authorization, tenant isolation, assignment checks, initial review prerequisite, history behavior, and university-name snapshots. No live database migration or deployment was performed.
+
+## Live rollout status
+
+The authorized backup volume is mounted at `/Volumes/Extra/backup`, but a fresh live backup could not be made because SSH to the VPS (`45.76.15.203:22`) refused the connection. The existing dated backup in that directory is not current enough to use for this rollout. Do not deploy or migrate production until SSH is reachable and a fresh database/files backup is verified.
 
 ## Review follow-up
 
