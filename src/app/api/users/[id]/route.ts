@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { prisma } from '@/src/lib/prisma'
 import { getEffectiveUser, isAdminRole, orgHasAnyFeature, orgHasFeature } from '@/src/lib/session'
 import { isSameOrg } from '@/src/lib/orgScope'
+import { isOrgAssignableRole, OWNER } from '@/src/lib/roles'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -28,7 +29,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (typeof body.name === 'string') data.name = body.name
     if (typeof body.email === 'string') data.email = body.email
     if (typeof body.isActive === 'boolean') data.isActive = body.isActive
-    if (typeof body.role === 'string') data.role = body.role
+    if (body.role !== undefined) {
+      if (!isOrgAssignableRole(body.role)) {
+        return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
+      }
+      if (body.role !== targetUser.role) {
+        if (id === user.id) {
+          return NextResponse.json({ error: 'You cannot change your own role' }, { status: 400 })
+        }
+        if (targetUser.role === OWNER) {
+          return NextResponse.json({ error: 'The organization owner’s role cannot be changed' }, { status: 400 })
+        }
+        data.role = body.role
+      }
+    }
 
     if (typeof body.canViewPortals === 'boolean') {
       if (user.role !== 'OWNER') {

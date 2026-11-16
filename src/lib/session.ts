@@ -49,13 +49,13 @@ export async function getEffectiveUser(req: NextRequest): Promise<EffectiveUser 
     const id = token.sub ?? token.id
     if (!id) return null
     const platformUser = await prisma.user.findUnique({
-      where: { id, role: SUPER_DEVELOPER, isActive: true },
+      where: { id, role: SUPER_DEVELOPER, isActive: true, organizationId: null },
       select: { id: true },
     })
     if (!platformUser) return null
   }
 
-  const baseOrgId = (token.organizationId as string | null | undefined) ?? null
+  const baseOrgId = actualRole === SUPER_DEVELOPER ? null : (token.organizationId as string | null | undefined) ?? null
   const impersonatingOrgId = actualRole === SUPER_DEVELOPER && typeof token.impersonatingOrgId === 'string'
     ? token.impersonatingOrgId || null
     : null

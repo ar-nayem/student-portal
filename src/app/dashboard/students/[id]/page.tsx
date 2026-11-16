@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 import { useSession } from 'next-auth/react'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { formatMoney } from '@/src/lib/money'
-import { reviewDecisionsFor, type ReviewDecision } from '@/src/lib/studentReview'
+import { readReviewHistoryDetails, reviewDecisionsFor, type ReviewDecision } from '@/src/lib/studentReview'
 
 type ReviewHistoryEntry = {
   id: string
@@ -178,6 +178,10 @@ export default function StudentDetailPage() {
 
   if (loading) return <div className="p-10 text-center text-muted-foreground">{t('common.loading')}</div>
   if (!student) return <div className="p-10 text-center text-muted-foreground">{t('students.studentNotFound')}</div>
+
+  const documentNames = new Map((student.documents as CorrectionDocument[])
+    .filter(doc => doc.organizationId === student.organizationId)
+    .map(doc => [doc.id, doc.originalName]))
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -437,29 +441,42 @@ export default function StudentDetailPage() {
           <Section title={t('students.reviewHistory')}>
             {student.reviewHistory?.length ? (
               <ol className="divide-y divide-border">
-                {student.reviewHistory.map((event: ReviewHistoryEntry) => (
-                  <li key={event.id} className="space-y-1 py-3 first:pt-0 last:pb-0">
-                    {event.toStatus === 'PENDING' && (
-                      <p className="text-sm font-semibold">{t('students.resubmittedForReview')}</p>
-                    )}
-                    <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-foreground">
-                      {event.fromStatus && (
-                        <>
-                          <span className="text-muted-foreground">{getStatusLabel(event.fromStatus)}</span>
-                          <span aria-hidden="true">→</span>
-                        </>
+                {student.reviewHistory.map((event: ReviewHistoryEntry) => {
+                  const { note, correctedDocuments } = readReviewHistoryDetails(event, documentNames)
+                  return (
+                    <li key={event.id} className="space-y-1 py-3 first:pt-0 last:pb-0">
+                      {event.toStatus === 'PENDING' && (
+                        <p className="text-sm font-semibold">{t('students.resubmittedForReview')}</p>
                       )}
-                      <span className={`rounded-md border px-1.5 py-0.5 text-xs ${getStatusBadge(event.toStatus)}`}>
-                        {getStatusLabel(event.toStatus)}
-                      </span>
-                    </p>
-                    <p className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
-                      <span className="break-words">{event.actor?.name || t('students.unknownReviewActor')}</span>
-                      <time dateTime={event.createdAt}>{formatDateTime(event.createdAt)}</time>
-                    </p>
-                    {event.note && <p className="whitespace-pre-wrap break-words text-sm text-foreground">{event.note}</p>}
-                  </li>
-                ))}
+                      <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-foreground">
+                        {event.fromStatus && (
+                          <>
+                            <span className="text-muted-foreground">{getStatusLabel(event.fromStatus)}</span>
+                            <span aria-hidden="true">→</span>
+                          </>
+                        )}
+                        <span className={`rounded-md border px-1.5 py-0.5 text-xs ${getStatusBadge(event.toStatus)}`}>
+                          {getStatusLabel(event.toStatus)}
+                        </span>
+                      </p>
+                      <p className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+                        <span className="break-words">{event.actor?.name || t('students.unknownReviewActor')}</span>
+                        <time dateTime={event.createdAt}>{formatDateTime(event.createdAt)}</time>
+                      </p>
+                      {correctedDocuments.length > 0 && (
+                        <div className="text-sm text-foreground">
+                          <p className="font-medium">{t('students.correctedDocuments')}</p>
+                          <ul className="list-disc space-y-0.5 pl-5">
+                            {correctedDocuments.map(doc => (
+                              <li key={doc.id} className="break-words">{doc.originalName ?? t('students.correctionFilenameUnavailable')}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {note && <p className="whitespace-pre-wrap break-words text-sm text-foreground">{note}</p>}
+                    </li>
+                  )
+                })}
               </ol>
             ) : (
               <p className="text-sm text-muted-foreground">{t('students.reviewHistoryEmpty')}</p>

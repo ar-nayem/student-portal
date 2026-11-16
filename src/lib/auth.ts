@@ -23,6 +23,7 @@ export const authConfig: any = {
         const user = await prisma.user.findUnique({ where: { email: identifier } })
 
         if (!user || !user.isActive) return null
+        if (user.role === SUPER_DEVELOPER && user.organizationId !== null) return null
 
         const isValid = await compare(credentials.password as string, user.password)
         if (!isValid) return null
@@ -73,12 +74,13 @@ export const authConfig: any = {
         where: { id },
         select: { role: true, organizationId: true, isActive: true },
       }) : null
-      if (!platformUser?.isActive || platformUser.role !== SUPER_DEVELOPER) {
-        token.role = platformUser?.isActive ? platformUser.role : DELETED
-        token.organizationId = platformUser?.isActive ? platformUser.organizationId : null
+      if (!platformUser?.isActive || platformUser.role !== SUPER_DEVELOPER || platformUser.organizationId !== null) {
+        token.role = platformUser?.isActive && platformUser.role !== SUPER_DEVELOPER ? platformUser.role : DELETED
+        token.organizationId = token.role === DELETED ? null : platformUser?.organizationId ?? null
         delete token.impersonatingOrgId
         return token
       }
+      token.organizationId = null
 
       // Only a live platform developer can enter or leave a tenant via session.update.
       if (trigger === 'update' && session && typeof session === 'object' && 'impersonatingOrgId' in session) {

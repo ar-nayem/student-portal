@@ -6,3 +6,7 @@ export const OWNER = 'OWNER'
 export const ADMIN = 'ADMIN'
 export const AGENT = 'AGENT'
 export const DELETED = 'DELETED'
+
+export function isOrgAssignableRole(role: unknown): role is typeof ADMIN | typeof AGENT {
+  return role === ADMIN || role === AGENT
+}

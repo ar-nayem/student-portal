@@ -42,6 +42,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         agentId: true,
         status: true,
         updatedAt: true,
+        documents: {
+          where: { id: { in: correctedDocumentIds }, organizationId: user.organizationId },
+          select: { id: true, originalName: true, createdAt: true },
+        },
         reviewHistory: {
           where: { toStatus: 'NEEDS_REVISION' },
           orderBy: reviewHistoryInclude.orderBy,
@@ -60,9 +64,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'This student does not have a revision request' }, { status: 409 })
     }
 
-    const correctionDetails = `Corrected document IDs\n${correctedDocumentIds.join('\n')}`
-    const agentNote = body.note?.trim()
-    const note = agentNote ? `${correctionDetails}\n\n${agentNote}` : correctionDetails
+    const correctedDocuments = existing.documents
+      .filter(doc => doc.createdAt > revision.createdAt)
+      .map(({ id, originalName }) => ({ id, originalName }))
+    if (correctedDocuments.length !== correctedDocumentIds.length) {
+      return NextResponse.json({ error: 'The selected documents changed. Reload and try again.' }, { status: 409 })
+    }
+    const note = JSON.stringify({ correctedDocuments, note: body.note?.trim() || null })
 
     const student = await prisma.student.update({
       where: {
@@ -71,9 +79,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         status: existing.status,
         updatedAt,
         // Each selected file must still belong to this student and the active revision.
-        AND: correctedDocumentIds.map(documentId => ({
+        AND: correctedDocuments.map(({ id, originalName }) => ({
           documents: {
-            some: { id: documentId, organizationId: user.organizationId, createdAt: { gt: revision.createdAt } },
+            some: { id, originalName, organizationId: user.organizationId, createdAt: { gt: revision.createdAt } },
           },
         })),
       },
