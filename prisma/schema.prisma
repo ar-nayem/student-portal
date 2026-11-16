@@ -176,6 +176,7 @@ model Organization {
   universities         University[]
   universityDocuments  UniversityDocument[]
   sharedResources      SharedResource[]
+  studentApplications  StudentApplication[]
 }
 
 model User {
@@ -232,6 +233,15 @@ model User {
   resourceGrantsReceived  ResourceGrant[]      @relation("ResourceGrantedTo")
   resourceGrantsIssued    ResourceGrant[]      @relation("ResourceGrantedBy")
   resourceAccessLogs      ResourceAccessLog[]  @relation("ResourceAccessedBy")
+
+  createdStudents            Student[]                   @relation("StudentCreatedBy")
+  studentReviews             StudentReviewHistory[]      @relation("StudentReviewActor")
+  previousAssignments        StudentAssignmentHistory[]  @relation("StudentAssignmentFromAgent")
+  newAssignments             StudentAssignmentHistory[]  @relation("StudentAssignmentToAgent")
+  recordedAssignments        StudentAssignmentHistory[]  @relation("StudentAssignmentActor")
+  createdStudentApplications StudentApplication[]        @relation("StudentApplicationCreatedBy")
+  updatedStudentApplications StudentApplication[]        @relation("StudentApplicationUpdatedBy")
+  studentApplicationChanges  StudentApplicationHistory[] @relation("StudentApplicationHistoryActor")
 }
 
 model Student {
@@ -293,6 +303,13 @@ model Student {
 
   agentId         String
   agent           User            @relation(fields: [agentId], references: [id])
+
+  createdById       String?
+  createdBy         User?                      @relation("StudentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewHistory     StudentReviewHistory[]
+  assignmentHistory StudentAssignmentHistory[]
+  applications      StudentApplication[]
+
   documents       Document[]
   educationHistory EducationHistory[]
   workExperience   WorkExperience[]
@@ -309,6 +326,80 @@ model Student {
 
   @@unique([organizationId, serialNumber])
   @@index([organizationId])
+}
+
+model StudentReviewHistory {
+  id         String   @id @default(uuid())
+  studentId  String
+  fromStatus String?
+  toStatus   String
+  note       String?
+  actorId    String?
+  createdAt  DateTime @default(now())
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  actor      User?    @relation("StudentReviewActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([studentId, createdAt])
+}
+
+model StudentAssignmentHistory {
+  id          String   @id @default(uuid())
+  studentId   String
+  fromAgentId String?
+  toAgentId   String?
+  note        String?
+  actorId     String?
+  createdAt   DateTime @default(now())
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  fromAgent   User?    @relation("StudentAssignmentFromAgent", fields: [fromAgentId], references: [id], onDelete: SetNull)
+  toAgent     User?    @relation("StudentAssignmentToAgent", fields: [toAgentId], references: [id], onDelete: SetNull)
+  actor       User?    @relation("StudentAssignmentActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([studentId, createdAt])
+}
+
+model StudentApplication {
+  id               String   @id @default(uuid())
+  studentId        String
+  organizationId   String
+  universityId     String?
+  universityName   String
+  program          String?
+  intake           String?
+  stage            String
+  customStageLabel String?
+  notes            String?
+  createdById      String?
+  updatedById      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  student      Student                     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  organization Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  university   University?                 @relation(fields: [universityId], references: [id], onDelete: SetNull)
+  createdBy    User?                       @relation("StudentApplicationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?                       @relation("StudentApplicationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  history      StudentApplicationHistory[]
+
+  @@index([studentId, createdAt])
+  @@index([organizationId])
+}
+
+model StudentApplicationHistory {
+  id                   String   @id @default(uuid())
+  applicationId        String
+  fromStage            String?
+  toStage              String
+  fromCustomStageLabel String?
+  toCustomStageLabel   String?
+  note                 String?
+  actorId              String?
+  createdAt            DateTime @default(now())
+
+  application StudentApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  actor       User?              @relation("StudentApplicationHistoryActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([applicationId, createdAt])
 }
 
 model EducationHistory {
@@ -508,7 +599,8 @@ model University {
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
 
-  documents UniversityDocument[]
+  documents    UniversityDocument[]
+  applications StudentApplication[]
 
   @@index([organizationId])
 }
