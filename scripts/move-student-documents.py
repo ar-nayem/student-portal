@@ -79,8 +79,8 @@ def verified_move(source, destination, has_destination):
     source.unlink()
 
 
-def inspect_preserved_tree(directory):
-    """Return all regular files below a preserved public asset directory."""
+def inspect_regular_tree(directory, label):
+    """Return regular files below a storage tree, rejecting links and devices."""
     files = []
     for current, directories, names in os.walk(directory, topdown=True, followlinks=False):
         current_path = Path(current)
@@ -88,11 +88,11 @@ def inspect_preserved_tree(directory):
             entry = current_path / name
             mode = entry.lstat().st_mode
             if stat.S_ISLNK(mode) or not stat.S_ISDIR(mode):
-                raise ValueError(f'Unsafe entry in preserved public asset tree: {entry}')
+                raise ValueError(f'Unsafe entry in {label}: {entry}')
         for name in names:
             entry = current_path / name
             if not regular_file(entry):
-                raise ValueError(f'Unsafe entry in preserved public asset tree: {entry}')
+                raise ValueError(f'Unsafe entry in {label}: {entry}')
             files.append(entry)
     return files
 
@@ -131,10 +131,18 @@ def move_files(database, root, apply):
                     raise ValueError(f'Unsafe preserved public asset path: {asset_dir}')
                 if overlaps(asset_dir.resolve(), private) or overlaps(asset_dir.resolve(), quarantine):
                     raise ValueError(f'Public asset directory overlaps private storage or quarantine: {asset_dir}')
-                preserved_files.extend(inspect_preserved_tree(asset_dir))
+                preserved_files.extend(inspect_regular_tree(asset_dir, 'preserved public asset tree'))
             except (OSError, ValueError) as error:
                 problems.append(str(error))
     preserved_inodes = {(path.stat().st_dev, path.stat().st_ino) for path in preserved_files}
+    for storage_path, label in ((private, 'private student-document storage'),
+                                 (quarantine, 'existing quarantine storage')):
+        try:
+            for stored_file in inspect_regular_tree(storage_path, label):
+                if (stored_file.stat().st_dev, stored_file.stat().st_ino) in preserved_inodes:
+                    problems.append(f'Hard-link alias between preserved public asset and {label}: {stored_file}')
+        except (OSError, ValueError) as error:
+            problems.append(str(error))
 
     def plan_move(source, destination, moves):
         has_destination = regular_file(destination)
