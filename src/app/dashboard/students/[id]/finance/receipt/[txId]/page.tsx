@@ -36,13 +36,15 @@ export default function ReceiptPage() {
         setTx(txData)
         if (orgRes.ok) setOrg(await orgRes.json())
 
-        const allTxRes = await fetch(`/api/transactions?studentId=${txData.studentId}`, { credentials: 'include' })
-        if (allTxRes.ok) {
-          const allTx = await allTxRes.json()
-          const paid = Array.isArray(allTx)
-            ? allTx.filter((t: any) => t.type === 'INCOME' && t.status === 'COMPLETED').reduce((sum: number, t: any) => sum + t.amount, 0)
-            : 0
-          setPaidToDate(paid)
+        if (txData.canViewStudent) {
+          const allTxRes = await fetch(`/api/transactions?studentId=${txData.studentId}`, { credentials: 'include' })
+          if (allTxRes.ok) {
+            const allTx = await allTxRes.json()
+            const paid = Array.isArray(allTx)
+              ? allTx.filter((t: any) => t.type === 'INCOME' && t.status === 'COMPLETED').reduce((sum: number, t: any) => sum + t.amount, 0)
+              : 0
+            setPaidToDate(paid)
+          }
         }
       } catch {
         toast.error(t('finance.receiptLoadFailed'))
@@ -69,7 +71,7 @@ export default function ReceiptPage() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="no-print flex flex-wrap items-center gap-3 mb-6">
-        <Link href={`/dashboard/students/${studentId}/finance`} className="text-muted-foreground hover:text-foreground p-2 rounded-xl hover:bg-muted transition-colors shrink-0">
+        <Link href={tx.canViewStudent ? `/dashboard/students/${tx.studentId}/finance` : '/dashboard/finance'} className="text-muted-foreground hover:text-foreground p-2 rounded-xl hover:bg-muted transition-colors shrink-0">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <h1 className="text-xl font-bold text-foreground tracking-tight flex-1 min-w-[200px]">{t('finance.receiptTitle')}</h1>

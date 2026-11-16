@@ -301,8 +301,9 @@ model Student {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
-  agentId         String
-  agent           User            @relation(fields: [agentId], references: [id])
+  agentId           String?
+  agent             User?   @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  assignmentVersion Int     @default(0)
 
   createdById       String?
   createdBy         User?                      @relation("StudentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)

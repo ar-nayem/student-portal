@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
+import { canAccessStudent } from '@/src/lib/studentAssignment'
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
+import { getEffectiveUser } from '@/src/lib/session'
 import { orgWhere } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ seri
       select: { id: true, fullName: true, serialNumber: true, status: true, agentId: true },
     })
 
-    if (!student || (!isAdminRole(user.role) && student.agentId !== user.id)) {
+    if (!student || (!canAccessStudent(user, student))) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 

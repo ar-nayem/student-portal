@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { logActivity } from '@/src/lib/activity'
 import { reviewHistoryInclude } from '@/src/lib/studentReview'
+import { assignmentHistoryInclude, canAccessStudent } from '@/src/lib/studentAssignment'
 import { feeFields, optionalTextFields, profileFields, requiredTextFields } from '@/src/lib/studentProfileFields'
 
 const editableFields = new Set<string>([
@@ -89,11 +90,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    if (!user.organizationId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     const { id } = await params
     const student = await prisma.student.findUnique({
       where: { id, ...orgWhere(user) },
       include: {
         agent: { select: { id: true, name: true, email: true } },
+        createdBy: { select: { id: true, name: true } },
+        assignmentHistory: isAdminRole(user.role) ? assignmentHistoryInclude : undefined,
         documents: true,
         educationHistory: true,
         workExperience: true,
@@ -107,7 +111,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     }
 
-    if (!isAdminRole(user.role) && (user.role !== 'AGENT' || student.agentId !== user.id)) {
+    if (!canAccessStudent(user, student)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -132,7 +136,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const isAdmin = isAdminRole(user.role)
-    if (!isAdmin && (user.role !== 'AGENT' || existing.agentId !== user.id)) {
+    if (!canAccessStudent(user, existing)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -177,7 +181,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     const isAdmin = isAdminRole(user.role)
-    if (!isAdmin && (user.role !== 'AGENT' || existing.agentId !== user.id)) {
+    if (!canAccessStudent(user, existing)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

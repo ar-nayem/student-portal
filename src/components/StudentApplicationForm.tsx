@@ -8,6 +8,8 @@ import { Save, Loader2, Upload, FileText, Image, Video, X, Plus, Trash2, FileIma
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { useFeatures } from '@/src/lib/FeaturesContext'
+import { useSession } from 'next-auth/react'
+import { StudentAgentSelect, useAssignableAgents } from '@/src/components/StudentAssignmentForm'
 
 interface EducationItem {
   degree: string
@@ -127,6 +129,11 @@ function buildDate(year: string, month: string, day: string) {
 }
 
 export default function StudentApplicationForm({ mode, endpoints, initialDocCategories, initialFieldRequirements, onSuccess }: StudentApplicationFormProps) {
+  const { data: session } = useSession()
+  const canAssign = mode === 'staff' && (session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER')
+  const { agents, failed: agentsFailed } = useAssignableAgents(canAssign, session?.user?.organizationId)
+  const [agentId, setAgentId] = useState('')
+  useEffect(() => { setAgentId('') }, [session?.user?.organizationId])
   const router = useRouter()
   const { t } = useLanguage()
   const { has: hasFeature } = useFeatures()
@@ -251,6 +258,7 @@ export default function StudentApplicationForm({ mode, endpoints, initialDocCate
     try {
       const fd = new FormData()
       fd.append('file', file)
+      if (canAssign && agentId) fd.append('agentId', agentId)
       const res = await fetch('/api/students/import', {
         method: 'POST',
         credentials: 'include',
@@ -379,7 +387,7 @@ export default function StudentApplicationForm({ mode, endpoints, initialDocCate
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         ...(mode === 'staff' ? { credentials: 'include' as RequestCredentials } : {}),
-        body: JSON.stringify(studentData)
+        body: JSON.stringify(canAssign ? { ...studentData, agentId: agentId || null } : studentData)
       })
 
       if (!studentRes.ok) {
@@ -395,6 +403,7 @@ export default function StudentApplicationForm({ mode, endpoints, initialDocCate
         const photoForm = new FormData()
         photoForm.append('file', photoFile)
         photoForm.append('studentId', student.id)
+        if (mode === 'public') photoForm.append('uploadToken', student.uploadToken)
         photoForm.append('type', 'IMAGE')
         photoForm.append('category', 'PHOTO')
         await fetch(endpoints.uploadDocument, { method: 'POST', ...(mode === 'staff' ? { credentials: 'include' as RequestCredentials } : {}), body: photoForm })
@@ -405,6 +414,7 @@ export default function StudentApplicationForm({ mode, endpoints, initialDocCate
         const formData = new FormData()
         formData.append('file', file)
         formData.append('studentId', student.id)
+        if (mode === 'public') formData.append('uploadToken', student.uploadToken)
         formData.append('type', category.type)
         formData.append('category', category.key)
         const res = await fetch(endpoints.uploadDocument, { method: 'POST', ...(mode === 'staff' ? { credentials: 'include' as RequestCredentials } : {}), body: formData })
@@ -432,6 +442,12 @@ export default function StudentApplicationForm({ mode, endpoints, initialDocCate
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {canAssign && (
+        <div className="max-w-sm">
+          <StudentAgentSelect value={agentId} onChange={setAgentId} agents={agents} />
+          {agentsFailed && <p className="mt-2 text-sm text-rose-600" role="alert">{t('students.assignmentAgentsFailed')}</p>}
+        </div>
+      )}
       {mode === 'staff' && (hasFeature('student_template') || hasFeature('student_import')) && (
         <div className="flex items-center justify-end gap-2 flex-wrap">
           {hasFeature('student_template') && (

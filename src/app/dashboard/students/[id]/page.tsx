@@ -8,12 +8,22 @@ import toast from 'react-hot-toast'
 import { useSession } from 'next-auth/react'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { formatMoney } from '@/src/lib/money'
+import { StudentAssignmentForm, useAssignableAgents } from '@/src/components/StudentAssignmentForm'
 import { readReviewHistoryDetails, reviewDecisionsFor, type ReviewDecision } from '@/src/lib/studentReview'
 
 type ReviewHistoryEntry = {
   id: string
   fromStatus: string | null
   toStatus: string
+  note: string | null
+  actor: { name: string } | null
+  createdAt: string
+}
+
+type AssignmentHistoryEntry = {
+  id: string
+  fromAgent: { name: string } | null
+  toAgent: { name: string } | null
   note: string | null
   actor: { name: string } | null
   createdAt: string
@@ -39,6 +49,7 @@ export default function StudentDetailPage() {
   const [correctedDocumentIds, setCorrectedDocumentIds] = useState<string[]>([])
   const [savingReview, setSavingReview] = useState(false)
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER'
+  const { agents, failed: agentsFailed } = useAssignableAgents(isAdmin, session?.user?.organizationId)
   const availableDecisions = isAdmin && student ? reviewDecisionsFor(student.status) : []
   const canResubmit = session?.user?.role === 'AGENT' && student?.agentId === session.user.id && student.status === 'NEEDS_REVISION'
   const activeRevision = canResubmit
@@ -75,6 +86,7 @@ export default function StudentDetailPage() {
       setStudent(data)
       setCorrectedDocumentIds([])
     } catch {
+      setStudent(null)
       toast.error(t('students.failedLoadStudent'))
     } finally {
       setLoading(false)
@@ -199,7 +211,8 @@ export default function StudentDetailPage() {
               </span>
             </div>
             <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-              <span className="text-sm text-muted-foreground">{t('students.submittedBy')} <span className="font-medium text-foreground">{student.agent?.name}</span></span>
+              <span className="text-sm text-muted-foreground">{t('students.submittedBy')}: <span className="font-medium text-foreground">{student.createdBy?.name ?? t('students.unknownCreator')}</span></span>
+              <span className="text-sm text-muted-foreground">{t('students.assignedAgent')}: <span className="font-medium text-foreground">{student.agent?.name ?? t('students.unassigned')}</span></span>
               {student.serialNumber && (
                 <span className="text-xs font-mono font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
                   {student.serialNumber}
@@ -209,7 +222,7 @@ export default function StudentDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {isAdmin && (
+          {isAdmin && student.agentId && (
             <Link
               href={`/dashboard/messages?with=${student.agentId}&studentId=${student.id}&studentName=${encodeURIComponent(student.fullName)}`}
               className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition flex items-center gap-2 text-sm font-medium shadow-sm shadow-indigo-500/20"
@@ -438,6 +451,34 @@ export default function StudentDetailPage() {
             </Section>
           )}
 
+          {isAdmin && (
+            <Section title={t('students.assignmentHistory')}>
+              <div className="space-y-4">
+                {agentsFailed && <p className="text-sm text-rose-600" role="alert">{t('students.assignmentAgentsFailed')}</p>}
+                <StudentAssignmentForm key={`${student.id}-${student.assignmentVersion}`} student={student} agents={agents} onSaved={fetchStudent} />
+                {student.assignmentHistory?.length ? (
+                  <ol className="divide-y divide-border border-t border-border">
+                    {student.assignmentHistory.map((event: AssignmentHistoryEntry) => (
+                      <li key={event.id} className="space-y-1 py-3 last:pb-0">
+                        <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-foreground">
+                          <span>{event.fromAgent?.name ?? t('students.unassigned')}</span>
+                          <span aria-hidden="true">→</span>
+                          <span>{event.toAgent?.name ?? t('students.unassigned')}</span>
+                        </p>
+                        <p className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+                          <span>{event.actor?.name ?? t('students.unknownReviewActor')}</span>
+                          <time dateTime={event.createdAt}>{formatDateTime(event.createdAt)}</time>
+                        </p>
+                        {event.note && <p className="whitespace-pre-wrap break-words text-sm text-foreground">{event.note}</p>}
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t('students.assignmentHistoryEmpty')}</p>
+                )}
+              </div>
+            </Section>
+          )}
           <Section title={t('students.reviewHistory')}>
             {student.reviewHistory?.length ? (
               <ol className="divide-y divide-border">

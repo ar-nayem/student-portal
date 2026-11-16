@@ -231,10 +231,10 @@ export function agentSignupTemplate(name: string, email: string) {
   `
 }
 
-export function studentSubmissionTemplate(agentName: string, studentName: string) {
+export function studentSubmissionTemplate(submittedBy: string, studentName: string) {
   return `
     <h2>New Student Submission</h2>
-    <p><strong>Agent:</strong> ${agentName}</p>
+    <p><strong>Submitted by:</strong> ${submittedBy}</p>
     <p><strong>Student:</strong> ${studentName}</p>
     <p>Please log in to the admin dashboard to review this submission.</p>
   `

@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/src/lib/prisma'
 import { getEffectiveUser, isAdminRole, orgHasAnyFeature, orgHasFeature } from '@/src/lib/session'
 import { isSameOrg } from '@/src/lib/orgScope'
@@ -156,7 +157,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       // staying silently pinned to a now-anonymized account.
       prisma.user.updateMany({ where: { managedByAdminId: id }, data: { managedByAdminId: null } }),
       prisma.user.update({
-        where: { id },
+        where: { id, organizationId: targetUser.organizationId, students: { none: {} } },
         data: {
           name: 'Deleted User',
           email: `deleted-${id}@deleted.local`,
@@ -171,7 +172,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       }),
     ])
     return NextResponse.json({ success: true })
-  } catch {
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return NextResponse.json({ error: 'The account changed. Check its student assignments and try again.' }, { status: 409 })
+    }
     return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 })
   }
 }

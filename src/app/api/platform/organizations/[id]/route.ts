@@ -6,6 +6,7 @@ import { SUPER_DEVELOPER } from '@/src/lib/roles'
 import { logActivity } from '@/src/lib/activity'
 import { sendNotification, orgWelcomeTemplate } from '@/src/lib/email'
 import { RESOURCE_DIR } from '@/src/lib/sharedResources'
+import { removeStudentDocument } from '@/src/lib/studentDocumentStorage'
 import { NextRequest, NextResponse } from 'next/server'
 import { unlink } from 'fs/promises'
 import { join, resolve } from 'path'
@@ -175,13 +176,16 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     // Files last: a failure here leaves disk litter, which is recoverable,
     // whereas doing it first could delete files for a transaction that then
     // rolled back.
-    const uploadDir = join(process.cwd(), 'public', 'uploads')
     let filesRemoved = 0
-    for (const f of [...docs, ...uniDocs]) {
+    for (const doc of docs) {
+      if (await removeStudentDocument(doc.filename).catch(() => false)) filesRemoved++
+    }
+    const uploadDir = join(process.cwd(), 'public', 'uploads', 'universities')
+    for (const f of uniDocs) {
       if (!f.filename) continue
       const target = resolve(uploadDir, f.filename)
       // Never follow a stored name outside the uploads directory.
-      if (!target.startsWith(resolve(uploadDir))) continue
+      if (!target.startsWith(resolve(uploadDir) + '/')) continue
       try {
         await unlink(target)
         filesRemoved++

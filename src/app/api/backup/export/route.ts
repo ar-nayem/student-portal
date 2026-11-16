@@ -9,8 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import JSZip from 'jszip'
 import * as XLSX from 'xlsx'
 import { createReadStream } from 'fs'
-import { access } from 'fs/promises'
-import { join } from 'path'
+import { findStudentDocumentPath } from '@/src/lib/studentDocumentStorage'
 import { Readable } from 'stream'
 
 // One-click "take everything with me" export for an org's OWNER (always) or
@@ -122,12 +121,9 @@ export async function GET(req: NextRequest) {
 
       const usedNames = new Map<string, number>()
       for (const doc of student.documents) {
-        const filePath = join(process.cwd(), 'public', 'uploads', doc.filename)
-        try {
-          await access(filePath)
-        } catch {
-          continue
-        }
+        const filePath = await findStudentDocumentPath(doc.filename)
+        if (!filePath) continue
+
         const ext = doc.originalName.includes('.') ? doc.originalName.split('.').pop() : ''
         const baseName = sanitize(labelByKey.get(doc.category) || doc.originalName.replace(/\.[^.]+$/, ''))
         const count = usedNames.get(baseName) || 0

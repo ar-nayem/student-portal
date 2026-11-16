@@ -1,10 +1,11 @@
 export const dynamic = 'force-dynamic'
 
-import { writeFile } from 'fs/promises'
-import { mkdir } from 'fs/promises'
-import { join } from 'path'
+import { mkdir, unlink, writeFile } from 'fs/promises'
+import { Prisma } from '@prisma/client'
+import { randomUUID } from 'crypto'
+import { STUDENT_DOCUMENT_DIR, studentDocumentPath } from '@/src/lib/studentDocumentStorage'
 import { prisma } from '@/src/lib/prisma'
-import { resolveIntakeUser } from '@/src/lib/intake'
+import { resolveIntakeUser, verifyIntakeUploadToken } from '@/src/lib/intake'
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity } from '@/src/lib/activity'
 
@@ -36,20 +37,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cod
     }
 
     const student = await prisma.student.findUnique({ where: { id: studentId } })
-    if (!student || student.organizationId !== agent.organizationId || student.agentId !== agent.id) {
+    if (!student || student.organizationId !== agent.organizationId ||
+      !verifyIntakeUploadToken(code, student, formData.get('uploadToken'))) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     }
 
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    const uploadDir = join(process.cwd(), 'public', 'uploads')
-    await mkdir(uploadDir, { recursive: true })
+    await mkdir(STUDENT_DOCUMENT_DIR, { recursive: true, mode: 0o700 })
 
     const rawExt = file.name.split('.').pop() || ''
     const ext = /^[a-zA-Z0-9]{1,10}$/.test(rawExt) ? rawExt : 'bin'
-    const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
-    const filepath = join(uploadDir, filename)
-    await writeFile(filepath, buffer)
+    const filename = `${randomUUID()}.${ext}`
+    const filepath = studentDocumentPath(filename)
+    await writeFile(filepath, buffer, { flag: 'wx', mode: 0o600 })
 
     let docType: 'PDF' | 'IMAGE' | 'VIDEO' = 'PDF'
     if (type === 'image' || file.type.startsWith('image/')) docType = 'IMAGE'
@@ -63,16 +64,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cod
         size: file.size,
         type: docType,
         category,
-        studentId,
-        uploadedById: agent.id,
-        organizationId: agent.organizationId
-      }
+        student: { connect: { id: studentId, organizationId: agent.organizationId, assignmentVersion: student.assignmentVersion } },
+        uploadedBy: { connect: { id: agent.id, studentIntakeCode: code, isActive: true, organizationId: agent.organizationId } },
+        organization: { connect: { id: agent.organizationId } },
+      },
+    }).catch(async error => {
+      await unlink(filepath).catch(() => {})
+      throw error
     })
 
     await logActivity(agent.id, 'DOCUMENT_UPLOADED', `${file.name} → ${student.fullName}`)
 
     return NextResponse.json(doc, { status: 201 })
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+    }
     console.error('Public intake upload error:', error)
     return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 })
   }
