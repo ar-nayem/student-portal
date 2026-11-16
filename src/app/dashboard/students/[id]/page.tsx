@@ -19,6 +19,13 @@ type ReviewHistoryEntry = {
   createdAt: string
 }
 
+type CorrectionDocument = {
+  id: string
+  originalName: string
+  organizationId: string | null
+  createdAt: string
+}
+
 export default function StudentDetailPage() {
   const { id } = useParams()
   const router = useRouter()
@@ -29,10 +36,18 @@ export default function StudentDetailPage() {
   const [financeSummary, setFinanceSummary] = useState<{ charged: number; spent: number } | null>(null)
   const [reviewDecision, setReviewDecision] = useState<ReviewDecision | ''>('')
   const [reviewNote, setReviewNote] = useState('')
+  const [correctedDocumentIds, setCorrectedDocumentIds] = useState<string[]>([])
   const [savingReview, setSavingReview] = useState(false)
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER'
   const availableDecisions = isAdmin && student ? reviewDecisionsFor(student.status) : []
   const canResubmit = session?.user?.role === 'AGENT' && student?.agentId === session.user.id && student.status === 'NEEDS_REVISION'
+  const activeRevision = canResubmit
+    ? student.reviewHistory?.find((event: ReviewHistoryEntry) => event.toStatus === 'NEEDS_REVISION')
+    : undefined
+  const correctionDocuments = activeRevision
+    ? (student.documents as CorrectionDocument[]).filter(doc =>
+        doc.organizationId === student.organizationId && Date.parse(doc.createdAt) > Date.parse(activeRevision.createdAt))
+    : []
   const noteRequired = reviewDecision === 'REJECTED' || reviewDecision === 'NEEDS_REVISION'
 
   useEffect(() => {
@@ -54,10 +69,11 @@ export default function StudentDetailPage() {
 
   async function fetchStudent() {
     try {
-      const res = await fetch(`/api/students/${id}`, { credentials: 'include' })
+      const res = await fetch(`/api/students/${id}`, { credentials: 'include', cache: 'no-store' })
       if (!res.ok) throw new Error()
       const data = await res.json()
       setStudent(data)
+      setCorrectedDocumentIds([])
     } catch {
       toast.error(t('students.failedLoadStudent'))
     } finally {
@@ -76,7 +92,7 @@ export default function StudentDetailPage() {
 
   async function saveReview(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (savingReview || (!canResubmit && !reviewDecision)) return
+    if (savingReview || student?.id !== id || (canResubmit ? !correctedDocumentIds.length : !reviewDecision)) return
 
     const note = reviewNote.trim()
     if (!canResubmit && noteRequired && !note) {
@@ -91,11 +107,15 @@ export default function StudentDetailPage() {
         method: canResubmit ? 'POST' : 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(canResubmit ? { note } : { status: reviewDecision, note }),
+        body: JSON.stringify(canResubmit
+          ? { note, correctedDocumentIds, updatedAt: student.updatedAt }
+          : { status: reviewDecision, note, updatedAt: student.updatedAt }),
       })
       if (res.status === 409) {
         toast.error(t('students.reviewChanged'))
         setReviewDecision('')
+        setReviewNote('')
+        setCorrectedDocumentIds([])
         await fetchStudent()
         return
       }
@@ -105,10 +125,12 @@ export default function StudentDetailPage() {
       setStudent((current: any) => current?.id === updated.id ? {
         ...current,
         status: updated.status,
+        updatedAt: updated.updatedAt,
         reviewHistory: updated.reviewHistory,
       } : current)
       setReviewDecision('')
       setReviewNote('')
+      setCorrectedDocumentIds([])
       toast.success(canResubmit
         ? t('students.resubmittedForReview')
         : `${t('students.statusUpdated')} ${getStatusLabel(updated.status)}`)
@@ -346,6 +368,32 @@ export default function StudentDetailPage() {
                     <Link href={`/dashboard/students/${id}/documents`} className="inline-block text-sm font-medium text-primary hover:underline">
                       {t('students.manageDocuments')}
                     </Link>
+                    {correctionDocuments.length > 0 ? (
+                      <fieldset disabled={savingReview} className="space-y-2">
+                        <legend className="mb-1 text-sm font-medium text-foreground">{t('students.selectCorrectionDocuments')}</legend>
+                        {correctionDocuments.map(doc => (
+                          <label key={doc.id} className="flex items-start gap-2 text-sm text-foreground">
+                            <input
+                              type="checkbox"
+                              checked={correctedDocumentIds.includes(doc.id)}
+                              onChange={event => {
+                                const checked = event.target.checked
+                                setCorrectedDocumentIds(ids => checked ? [...ids, doc.id] : ids.filter(id => id !== doc.id))
+                              }}
+                              className="mt-1"
+                            />
+                            <span className="min-w-0 break-words">
+                              {doc.originalName}
+                              <time dateTime={doc.createdAt} className="block text-xs text-muted-foreground">
+                                {formatDateTime(doc.createdAt)}
+                              </time>
+                            </span>
+                          </label>
+                        ))}
+                      </fieldset>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">{t('students.noCorrectionDocuments')}</p>
+                    )}
                   </>
                 ) : (
                   <label className="block text-sm font-medium text-foreground">
@@ -377,7 +425,7 @@ export default function StudentDetailPage() {
                 )}
                 <button
                   type="submit"
-                  disabled={savingReview || (!canResubmit && !reviewDecision)}
+                  disabled={savingReview || (canResubmit ? !correctedDocumentIds.length : !reviewDecision)}
                   className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                 >
                   {t(canResubmit ? 'students.resubmitForReview' : 'students.saveReviewDecision')}

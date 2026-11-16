@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const role = token.role as string
-    const orgId = ((token.impersonatingOrgId as string | null) ?? (token.organizationId as string | null)) || null
+    const orgId = token.organizationId
 
     // A platform operator has no org window of their own to report on.
     if (!orgId || role === SUPER_DEVELOPER) {

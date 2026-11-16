@@ -1,7 +1,7 @@
 import { getToken } from 'next-auth/jwt'
 import { NextRequest } from 'next/server'
 import { prisma } from './prisma'
-import { SUPER_DEVELOPER } from './roles'
+import { DELETED, SUPER_DEVELOPER } from './roles'
 import { parseFeatures, type FeatureKey } from './features'
 import { requireAuthSecret } from './authSecret'
 
@@ -43,8 +43,22 @@ export async function getEffectiveUser(req: NextRequest): Promise<EffectiveUser 
   if (!token) return null
 
   const actualRole = token.role as string
+  if (actualRole === DELETED) return null
+
+  if (actualRole === SUPER_DEVELOPER) {
+    const id = token.sub ?? token.id
+    if (!id) return null
+    const platformUser = await prisma.user.findUnique({
+      where: { id, role: SUPER_DEVELOPER, isActive: true },
+      select: { id: true },
+    })
+    if (!platformUser) return null
+  }
+
   const baseOrgId = (token.organizationId as string | null | undefined) ?? null
-  const impersonatingOrgId = (token.impersonatingOrgId as string | null | undefined) ?? null
+  const impersonatingOrgId = actualRole === SUPER_DEVELOPER && typeof token.impersonatingOrgId === 'string'
+    ? token.impersonatingOrgId || null
+    : null
   const activeOrgId = impersonatingOrgId ?? baseOrgId
 
   if (activeOrgId) {

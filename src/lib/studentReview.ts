@@ -10,6 +10,16 @@ export function reviewDecisionsFor(status: string): readonly ReviewDecision[] {
   return []
 }
 
+export function parseReviewVersion(value: unknown): Date | null {
+  if (typeof value !== 'string') return null
+  const date = new Date(value)
+  return Number.isFinite(date.getTime()) && date.toISOString() === value ? date : null
+}
+
+export function nextReviewVersion(previous: Date): Date {
+  return new Date(Math.max(Date.now(), previous.getTime() + 1))
+}
+
 export const reviewHistoryInclude = {
   include: { actor: { select: { name: true } } },
   orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],

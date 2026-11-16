@@ -2,6 +2,7 @@ import Credentials from 'next-auth/providers/credentials'
 import { compare } from 'bcryptjs'
 import { prisma } from './prisma'
 import { logActivity } from './activity'
+import { DELETED, SUPER_DEVELOPER } from './roles'
 
 export const authConfig: any = {
   providers: [
@@ -62,18 +63,44 @@ export const authConfig: any = {
         token.role = dbUser?.role ?? token.role
         token.organizationId = dbUser?.organizationId ?? null
       }
-      // How SUPER_DEVELOPER impersonation mutates an already-issued session:
-      // the client calls next-auth's session.update({ impersonatingOrgId })
-      // (or `{ impersonatingOrgId: null }` to exit) without forcing a re-login.
-      if (trigger === 'update' && session && 'impersonatingOrgId' in session) {
-        token.impersonatingOrgId = session.impersonatingOrgId
+      if (token.role !== SUPER_DEVELOPER) {
+        delete token.impersonatingOrgId
+        return token
+      }
+
+      const id = token.sub ?? token.id
+      const platformUser = id ? await prisma.user.findUnique({
+        where: { id },
+        select: { role: true, organizationId: true, isActive: true },
+      }) : null
+      if (!platformUser?.isActive || platformUser.role !== SUPER_DEVELOPER) {
+        token.role = platformUser?.isActive ? platformUser.role : DELETED
+        token.organizationId = platformUser?.isActive ? platformUser.organizationId : null
+        delete token.impersonatingOrgId
+        return token
+      }
+
+      // Only a live platform developer can enter or leave a tenant via session.update.
+      if (trigger === 'update' && session && typeof session === 'object' && 'impersonatingOrgId' in session) {
+        const organizationId = session.impersonatingOrgId
+        if (organizationId === null) {
+          delete token.impersonatingOrgId
+        } else if (typeof organizationId === 'string' && organizationId) {
+          const organization = await prisma.organization.findUnique({
+            where: { id: organizationId },
+            select: { id: true },
+          })
+          if (organization) token.impersonatingOrgId = organization.id
+        }
       }
       return token
     },
     async session({ session, token }: { session: any; token: any }) {
       if (token) {
         const actualRole = token.role as string
-        const impersonatingOrgId = (token.impersonatingOrgId as string | null) ?? null
+        const impersonatingOrgId = actualRole === SUPER_DEVELOPER && typeof token.impersonatingOrgId === 'string'
+          ? token.impersonatingOrgId || null
+          : null
         const baseOrgId = (token.organizationId as string | null) ?? null
         // While impersonating, expose the effective role ('OWNER') and the
         // active org (the impersonated one) so every existing client-side
