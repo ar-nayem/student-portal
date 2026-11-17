@@ -6,8 +6,7 @@ import { orgWhere } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import JSZip from 'jszip'
 import { createReadStream } from 'fs'
-import { access } from 'fs/promises'
-import { join } from 'path'
+import { findStudentDocumentPath } from '@/src/lib/studentDocumentStorage'
 import { Readable } from 'stream'
 
 export async function POST(req: NextRequest) {
@@ -48,12 +47,8 @@ export async function POST(req: NextRequest) {
       const usedNames = new Map<string, number>()
 
       for (const doc of student.documents) {
-        const filePath = join(process.cwd(), 'public', 'uploads', doc.filename)
-        try {
-          await access(filePath)
-        } catch {
-          continue // Skip files that no longer exist on disk
-        }
+        const filePath = await findStudentDocumentPath(doc.filename)
+        if (!filePath) continue
 
         const ext = doc.originalName.includes('.') ? doc.originalName.split('.').pop() : ''
         const baseName = sanitize(labelByKey.get(doc.category) || doc.originalName.replace(/\.[^.]+$/, ''))

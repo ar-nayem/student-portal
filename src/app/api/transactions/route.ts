@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 
+import { canAccessStudent, findAssignableAgent, InvalidStudentAgent } from '@/src/lib/studentAssignment'
 import { prisma } from '@/src/lib/prisma'
 import { getEffectiveUser, isAdminRole, orgHasFeature } from '@/src/lib/session'
 import { orgWhere, isSameOrg, requireOrgId } from '@/src/lib/orgScope'
@@ -53,10 +54,10 @@ export async function GET(req: NextRequest) {
       // who logged each entry — same access rule as the student record itself.
       const student = await prisma.student.findUnique({ where: { id: studentId }, select: { agentId: true, organizationId: true } })
       if (!student || !isSameOrg(user, student)) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
-      if (!isAdminRole(user.role) && student.agentId !== user.id) {
+      if (!canAccessStudent(user, student)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
-      where = { studentId }
+      where = { studentId, ...(isAdminRole(user.role) ? {} : { student: { agentId: user.id, organizationId: student.organizationId } }) }
     } else {
       where = await scopeWhere(user, searchParams)
     }
@@ -92,14 +93,22 @@ export async function GET(req: NextRequest) {
     const transactions = await prisma.transaction.findMany({
       where,
       include: {
-        student: { select: { id: true, fullName: true, serialNumber: true, status: true } },
+        student: { select: { id: true, fullName: true, serialNumber: true, status: true, agentId: true, organizationId: true } },
         agent: { select: { id: true, name: true, email: true } },
         createdBy: { select: { id: true, name: true } },
       },
       orderBy: { transactionDate: 'desc' },
     })
 
-    return NextResponse.json(transactions)
+    return NextResponse.json(transactions.map(({ student, ...transaction }) => {
+      const canViewStudent = student.organizationId === user.organizationId && canAccessStudent(user, student)
+      const { id, fullName, serialNumber, status } = student
+      return {
+        ...transaction,
+        canViewStudent,
+        student: { id, fullName, serialNumber, ...(canViewStudent ? { status } : {}) },
+      }
+    }))
   } catch (error) {
     console.error('GET /api/transactions error:', error)
     return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 })
@@ -118,7 +127,11 @@ export async function POST(req: NextRequest) {
     if (!orgId) return NextResponse.json({ error: 'No active organization context' }, { status: 400 })
 
     const body = await req.json()
-    const { studentId, type, category, amount, currency, paymentMethod, status, description, transactionDate } = body
+    const { studentId, agentId: requestedAgentId, type, category, amount, currency, paymentMethod, status, description, transactionDate } = body
+    const explicitAgentId: string | null = typeof requestedAgentId === 'string' ? requestedAgentId.trim() || null : null
+    if (requestedAgentId != null && !explicitAgentId) {
+      return NextResponse.json({ error: 'Invalid agentId' }, { status: 400 })
+    }
 
     if (!studentId || typeof studentId !== 'string') {
       return NextResponse.json({ error: 'studentId is required' }, { status: 400 })
@@ -140,33 +153,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }
 
-    const student = await prisma.student.findUnique({ where: { id: studentId } })
-    if (!student || !isSameOrg(user, student)) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+    const result = await prisma.$transaction(async tx => {
+      const student = await tx.student.findUnique({
+        where: { id: studentId, organizationId: orgId },
+        select: { agentId: true },
+      })
+      if (!student) return { error: 'Student not found', status: 404 } as const
+      if (!canAccessStudent(user, student)) return { error: 'Forbidden', status: 403 } as const
+      if (explicitAgentId) {
+        if (!isAdminRole(user.role) && explicitAgentId !== user.id) {
+          return { error: 'Forbidden', status: 403 } as const
+        }
+        if (!(await findAssignableAgent(tx, orgId, explicitAgentId))) throw new InvalidStudentAgent()
+      }
 
-    if (!isAdminRole(user.role) && student.agentId !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    const transaction = await prisma.transaction.create({
-      data: {
-        studentId,
-        agentId: student.agentId,
-        createdById: user.id,
-        organizationId: orgId,
-        type,
-        category,
-        amount: amountNum,
-        currency: currency || 'CNY',
-        paymentMethod: paymentMethod || null,
-        status: status || 'COMPLETED',
-        description: description || null,
-        transactionDate: transactionDate ? new Date(transactionDate) : new Date(),
-      },
-      include: {
-        student: { select: { id: true, fullName: true, serialNumber: true } },
-        agent: { select: { id: true, name: true } },
-      },
+      const transaction = await tx.transaction.create({
+        data: {
+          studentId,
+          // Attribution is a snapshot. Future student reassignments leave it intact.
+          agentId: explicitAgentId ?? student.agentId ?? user.id,
+          createdById: user.id,
+          organizationId: orgId,
+          type,
+          category,
+          amount: amountNum,
+          currency: currency || 'CNY',
+          paymentMethod: paymentMethod || null,
+          status: status || 'COMPLETED',
+          description: description || null,
+          transactionDate: transactionDate ? new Date(transactionDate) : new Date(),
+        },
+        include: {
+          student: { select: { id: true, fullName: true, serialNumber: true } },
+          agent: { select: { id: true, name: true } },
+        },
+      })
+      return { transaction } as const
     })
+
+    if ('error' in result) return NextResponse.json({ error: result.error }, { status: result.status })
+    const { transaction } = result
 
     await logActivity(
       user.id,
@@ -176,6 +202,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(transaction, { status: 201 })
   } catch (error) {
+    if (error instanceof InvalidStudentAgent) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
     console.error('POST /api/transactions error:', error)
     return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 })
   }

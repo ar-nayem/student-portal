@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
+import { canAccessStudent } from '@/src/lib/studentAssignment'
 import { prisma } from '@/src/lib/prisma'
-import { getEffectiveUser, isAdminRole, orgHasFeature } from '@/src/lib/session'
+import { getEffectiveUser, orgHasFeature } from '@/src/lib/session'
 import { isSameOrg } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     })
 
     if (!student || !isSameOrg(user, student)) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
-    if (!isAdminRole(user.role) && student.agentId !== user.id) {
+    if (!canAccessStudent(user, student)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

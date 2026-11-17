@@ -410,7 +410,7 @@ export default function AdminDashboard({ stats, recentStudents, canExportBackup 
                         <p className="text-xs text-muted-foreground mt-0.5">{student.mainEmail}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground">{student.agent.name}</td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">{student.agent?.name ?? t('students.unassigned')}</td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider border ${getStatusBadge(student.status)}`}>
                         {getStatusLabel(student.status)}

@@ -6,11 +6,12 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   Search, Filter, Download, Eye, FileText, Trash2,
-  CheckCircle, XCircle, Clock, UserCheck, Link2, Copy, Check, RefreshCw, X, Loader2
+  CheckCircle, XCircle, Clock, FileWarning, UserCheck, Link2, Copy, Check, RefreshCw, X, Loader2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { useFeatures } from '@/src/lib/FeaturesContext'
+import { StudentAssignmentForm, useAssignableAgents } from '@/src/components/StudentAssignmentForm'
 
 export default function StudentsPage() {
   return (
@@ -32,7 +33,6 @@ function StudentsPageInner() {
   const [status, setStatus] = useState(searchParams.get('status') || '')
   const [agentId, setAgentId] = useState(searchParams.get('agentId') || '')
   const [adminId, setAdminId] = useState(searchParams.get('adminId') || '')
-  const [agents, setAgents] = useState<any[]>([])
   const [admins, setAdmins] = useState<any[]>([])
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [shareModalOpen, setShareModalOpen] = useState(false)
@@ -41,23 +41,27 @@ function StudentsPageInner() {
   const [intakeRegenerating, setIntakeRegenerating] = useState(false)
   const [intakeCopied, setIntakeCopied] = useState(false)
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER'
+  const { agents, failed: agentsFailed } = useAssignableAgents(isAdmin, session?.user?.organizationId)
 
   useEffect(() => {
     if (session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER') {
       fetch('/api/users')
         .then(res => res.json())
         .then(data => {
-          setAgents(data.filter((u: any) => u.role === 'AGENT'))
-          setAdmins(data.filter((u: any) => u.role === 'ADMIN' || u.role === 'OWNER'))
+          setAdmins(Array.isArray(data) ? data.filter((u: any) => u.role === 'ADMIN' || u.role === 'OWNER') : [])
         })
+        .catch(() => setAdmins([]))
     }
   }, [session])
 
   useEffect(() => {
-    fetchStudents()
+    const controller = new AbortController()
+    setSelectedStudents([])
+    fetchStudents(controller.signal)
+    return () => controller.abort()
   }, [search, status, agentId, adminId, session])
 
-  async function fetchStudents() {
+  async function fetchStudents(signal?: AbortSignal) {
     if (!session?.user) return
     setLoading(true)
     try {
@@ -66,13 +70,17 @@ function StudentsPageInner() {
       if (status) params.set('status', status)
       if (isAdmin && (agentId || adminId)) params.set('agentId', agentId || adminId)
 
-      const res = await fetch(`/api/students?${params}`)
+      const res = await fetch(`/api/students?${params}`, { signal, cache: 'no-store' })
+      if (!res.ok) throw new Error()
       const data = await res.json()
-      setStudents(data)
+      if (!signal?.aborted) setStudents(data)
     } catch {
-      toast.error(t('students.failedLoadStudents'))
+      if (!signal?.aborted) {
+        setStudents([])
+        toast.error(t('students.failedLoadStudents'))
+      }
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) setLoading(false)
     }
   }
 
@@ -125,10 +133,11 @@ function StudentsPageInner() {
     try {
       const params = new URLSearchParams()
       if (status) params.set('status', status)
-      if (agentId) params.set('agentId', agentId)
+      if (agentId || adminId) params.set('agentId', agentId || adminId)
       params.set('format', 'xlsx')
       
       const res = await fetch(`/api/export?${params}`)
+      if (!res.ok) throw new Error()
       const blob = await res.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -202,7 +211,8 @@ function StudentsPageInner() {
     const styles: Record<string, string> = {
       PENDING: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200',
       APPROVED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200',
-      REJECTED: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border-rose-200'
+      REJECTED: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border-rose-200',
+      NEEDS_REVISION: 'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300 border-orange-200',
     }
     return styles[s] || 'bg-muted text-foreground border-border'
   }
@@ -212,6 +222,7 @@ function StudentsPageInner() {
       PENDING: t('common.statusPending'),
       APPROVED: t('common.statusApproved'),
       REJECTED: t('common.statusRejected'),
+      NEEDS_REVISION: t('students.needsRevision'),
     }
     return labels[s] || s
   }
@@ -219,6 +230,7 @@ function StudentsPageInner() {
   const getStatusIcon = (s: string) => {
     if (s === 'APPROVED') return <CheckCircle className="w-3.5 h-3.5" />
     if (s === 'REJECTED') return <XCircle className="w-3.5 h-3.5" />
+    if (s === 'NEEDS_REVISION') return <FileWarning className="w-3.5 h-3.5" />
     return <Clock className="w-3.5 h-3.5" />
   }
 
@@ -285,18 +297,20 @@ function StudentsPageInner() {
               <option value="PENDING">{t('common.statusPending')}</option>
               <option value="APPROVED">{t('common.statusApproved')}</option>
               <option value="REJECTED">{t('common.statusRejected')}</option>
+              <option value="NEEDS_REVISION">{t('students.needsRevision')}</option>
             </select>
           </div>
 
           {isAdmin && (
             <div>
-              <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">{t('dashboard.agent')}</label>
+              <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">{t('students.assignedAgent')}</label>
               <select
                 value={agentId}
                 onChange={(e) => { setAgentId(e.target.value); setAdminId('') }}
                 className="px-3 py-2.5 border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-muted/50"
               >
                 <option value="">{t('students.allAgents')}</option>
+                <option value="unassigned">{t('students.unassigned')}</option>
                 {agents.map((agent) => (
                   <option key={agent.id} value={agent.id}>{agent.name}</option>
                 ))}
@@ -354,6 +368,8 @@ function StudentsPageInner() {
         </div>
       </div>
 
+      {agentsFailed && <p className="text-sm text-rose-600" role="alert">{t('students.assignmentAgentsFailed')}</p>}
+
       {/* Table */}
       <div className="bg-card rounded-2xl shadow-sm border border-border/60 overflow-hidden">
         {loading ? (
@@ -382,7 +398,12 @@ function StudentsPageInner() {
                   )}
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('students.serialNo')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('dashboard.student')}</th>
-                  {isAdmin && <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('dashboard.agent')}</th>}
+                  {isAdmin && (
+                    <>
+                      <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('students.assignedAgent')}</th>
+                      <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('students.submittedBy')}</th>
+                    </>
+                  )}
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('students.program')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('common.status')}</th>
                   <th className="px-6 py-3.5 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('dashboard.documents')}</th>
@@ -413,7 +434,23 @@ function StudentsPageInner() {
                       </div>
                     </td>
                     {isAdmin && (
-                      <td className="px-6 py-4 text-sm text-muted-foreground">{student.agent?.name}</td>
+                      <>
+                        <td className="px-6 py-4 text-sm">
+                          <p>{student.agent?.name ?? t('students.unassigned')}</p>
+                          <details className="mt-1">
+                            <summary className="cursor-pointer text-indigo-600">{t('students.changeAssignment')}</summary>
+                            <div className="mt-3">
+                              <StudentAssignmentForm
+                                key={student.assignmentVersion}
+                                student={student}
+                                agents={agents}
+                                onSaved={() => fetchStudents()}
+                              />
+                            </div>
+                          </details>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">{student.createdBy?.name ?? t('students.unknownCreator')}</td>
+                      </>
                     )}
                     <td className="px-6 py-4 text-sm text-muted-foreground">{student.programApplied || '-'}</td>
                     <td className="px-6 py-4">

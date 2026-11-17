@@ -1,6 +1,8 @@
 import { GoogleGenAI } from '@google/genai'
 import { prisma } from '@/src/lib/prisma'
-import { orgWhere } from '@/src/lib/orgScope'
+import type { Prisma } from '@prisma/client'
+import { AGENT, ADMIN, OWNER } from '@/src/lib/roles'
+import { adminStudentAssignmentFilter } from '@/src/lib/studentAssignment'
 
 export type SessionUser = { id: string; role: string; organizationId: string | null } | null
 
@@ -41,17 +43,6 @@ async function liveOffersContext(organizationId?: string | null) {
     .join('\n')
 }
 
-// Scoping matches /api/students GET: agents see only their own students,
-// admins see their managed-agent team (or everyone if no team is set), owner sees all.
-async function allowedAgentIds(user: { id: string; role: string }): Promise<string[] | null> {
-  if (user.role === 'OWNER') return null
-  if (user.role === 'ADMIN') {
-    const managed = await prisma.user.findMany({ where: { managedByAdminId: user.id }, select: { id: true } })
-    return managed.length > 0 ? [...managed.map(m => m.id), user.id] : null
-  }
-  return [user.id]
-}
-
 // Best-effort entity match so we only ever inject ONE student's data into the
 // prompt (never a full roster) — keeps the LLM context small and prevents a
 // vague question like "how are my students doing" from dumping everyone's PII.
@@ -59,15 +50,16 @@ async function matchedStudentContext(user: { id: string; role: string; organizat
   const tokens = message.split(/\s+/).map(t => t.trim()).filter(t => t.length >= 4)
   if (tokens.length === 0) return null
 
-  const agentIds = await allowedAgentIds(user)
-  // OWNER's "unrestricted" case (agentIds === null) must still stay inside
-  // their own org — without this it searched every student platform-wide.
-  const where: any = { ...orgWhere(user), ...(agentIds ? { agentId: { in: agentIds } } : {}) }
-  where.OR = tokens.flatMap(t => [
-    { serialNumber: { contains: t } },
-    { passportNo: { contains: t } },
-    { fullName: { contains: t } },
-  ])
+  if (!user.organizationId || ![AGENT, ADMIN, OWNER].includes(user.role)) return null
+  const where: Prisma.StudentWhereInput = {
+    organizationId: user.organizationId,
+    ...(user.role === AGENT ? { agentId: user.id } : await adminStudentAssignmentFilter(user)),
+    AND: [{ OR: tokens.flatMap(t => [
+      { serialNumber: { contains: t } },
+      { passportNo: { contains: t } },
+      { fullName: { contains: t } },
+    ]) }],
+  }
 
   const student = await prisma.student.findFirst({
     where,
@@ -83,7 +75,7 @@ async function matchedStudentContext(user: { id: string; role: string; organizat
     `Name: ${student.fullName}`,
     `Serial number: ${student.serialNumber || 'not assigned yet'}`,
     `Internal status: ${student.status}`,
-    `Agent: ${student.agent.name}`,
+    `Agent: ${student.agent?.name ?? 'Unassigned'}`,
   ]
   if (snapshot) {
     lines.push(`University portal — applied: ${snapshot.applyStatus || 'unknown'}, admitted: ${snapshot.admitStatus || 'unknown'} (last checked ${new Date(snapshot.lastSeenAt).toLocaleDateString()})`)

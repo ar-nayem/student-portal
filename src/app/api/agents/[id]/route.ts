@@ -2,7 +2,8 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
 import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
-import { isSameOrg } from '@/src/lib/orgScope'
+import { isSameOrg, orgWhere } from '@/src/lib/orgScope'
+import { messageStudentSelect, serializeMessageStudent } from '@/src/lib/messageStudent'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const [students, documentCount, activityLogs, messages] = await Promise.all([
       prisma.student.findMany({
-        where: { agentId: id },
+        where: { agentId: id, organizationId: agent.organizationId },
         select: {
           id: true,
           fullName: true,
@@ -62,10 +63,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             { senderId: user.id, receiverId: id },
             { senderId: id, receiverId: user.id },
           ],
+          ...orgWhere(user),
         },
         include: {
           sender: { select: { id: true, name: true, role: true } },
-          student: { select: { id: true, fullName: true, serialNumber: true } },
+          student: { select: messageStudentSelect },
         },
         orderBy: { createdAt: 'asc' },
         take: 100,
@@ -89,7 +91,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       stats,
       documentCount,
       activityLogs,
-      messages,
+      messages: messages.map(message => serializeMessageStudent(user, message)),
     })
   } catch (error) {
     console.error('Agent detail GET error:', error)

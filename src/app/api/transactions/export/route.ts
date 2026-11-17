@@ -5,6 +5,7 @@ import { getEffectiveUser, isAdminRole, orgHasFeature } from '@/src/lib/session'
 import { orgWhere } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
+import { canAccessStudent } from '@/src/lib/studentAssignment'
 
 export async function GET(req: NextRequest) {
   try {
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
     const transactions = await prisma.transaction.findMany({
       where,
       include: {
-        student: { select: { fullName: true, serialNumber: true, status: true } },
+        student: { select: { fullName: true, serialNumber: true, status: true, agentId: true, organizationId: true } },
         agent: { select: { name: true, email: true } },
         createdBy: { select: { name: true } },
       },
@@ -71,7 +72,7 @@ export async function GET(req: NextRequest) {
       'Status': tx.status,
       'Student': tx.student.fullName,
       'Serial No.': tx.student.serialNumber || '',
-      'Student Status': tx.student.status,
+      'Student Status': tx.student.organizationId === user.organizationId && canAccessStudent(user, tx.student) ? tx.student.status : '',
       'Agent': tx.agent.name,
       'Logged By': tx.createdBy.name,
       'Description': tx.description || '',

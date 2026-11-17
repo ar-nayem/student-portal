@@ -1,11 +1,13 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { resolveIntakeUser } from '@/src/lib/intake'
+import { issueIntakeUploadToken, resolveIntakeUser } from '@/src/lib/intake'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendNotification, studentSubmissionTemplate } from '@/src/lib/email'
 import { logActivity } from '@/src/lib/activity'
 import { createStudentFromData } from '@/src/lib/createStudent'
+import { AGENT } from '@/src/lib/roles'
+import { InvalidStudentAgent } from '@/src/lib/studentAssignment'
 
 // Fields an anonymous applicant may set. Internal-only Student columns
 // (totalFee, myCosting, status, serialNumber, agentId, organizationId, ...)
@@ -70,19 +72,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cod
       if (key in body) studentData[key] = body[key]
     }
 
-    const student = await createStudentFromData(agent.id, agent.organizationId, studentData, {
+    const assignedAgentId = agent.role === AGENT ? agent.id : null
+    const student = await createStudentFromData(agent.organizationId, { creatorId: null, assignedAgentId }, studentData, {
       educationHistory, workExperience, familyMembers, financialSponsors,
     })
 
     await sendNotification(
       'New Student Submission',
-      studentSubmissionTemplate(student.agent.name, student.fullName),
+      studentSubmissionTemplate(`Public application link (${agent.name})`, student.fullName),
       agent.organizationId
     )
     await logActivity(agent.id, 'STUDENT_CREATED', `${student.fullName} (${student.serialNumber})`)
 
-    return NextResponse.json({ id: student.id, serialNumber: student.serialNumber }, { status: 201 })
+    return NextResponse.json({
+      id: student.id,
+      serialNumber: student.serialNumber,
+      uploadToken: issueIntakeUploadToken(code, student),
+    }, { status: 201 })
   } catch (error: any) {
+    if (error instanceof InvalidStudentAgent) {
+      return NextResponse.json({ error: 'This application link is invalid or no longer active' }, { status: 404 })
+    }
     console.error('POST /api/public/intake/[code] error:', error)
     return NextResponse.json({ error: 'Failed to submit application', details: error?.message || String(error) }, { status: 500 })
   }

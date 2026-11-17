@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { prisma } from '@/src/lib/prisma'
 import { getEffectiveUser, orgHasFeature } from '@/src/lib/session'
 import { orgWhere, requireOrgId } from '@/src/lib/orgScope'
+import { canReadMessageStudent, messageStudentSelect, serializeMessageStudent } from '@/src/lib/messageStudent'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(req: NextRequest) {
@@ -30,11 +31,12 @@ export async function GET(req: NextRequest) {
         include: {
           sender: { select: { id: true, name: true, role: true } },
           receiver: { select: { id: true, name: true, role: true } },
-          student: { select: { id: true, fullName: true, serialNumber: true } },
+          student: { select: messageStudentSelect },
         },
         orderBy: { createdAt: 'asc' },
       })
-      return NextResponse.json(messages)
+      const visibleMessages = messages.map(message => serializeMessageStudent(user, message))
+      return NextResponse.json(studentId ? visibleMessages.filter(message => message.studentId === studentId) : visibleMessages)
     }
 
     // Get conversation list
@@ -49,14 +51,15 @@ export async function GET(req: NextRequest) {
       include: {
         sender: { select: { id: true, name: true, role: true } },
         receiver: { select: { id: true, name: true, role: true } },
-        student: { select: { id: true, fullName: true, serialNumber: true } },
+        student: { select: messageStudentSelect },
       },
       orderBy: { createdAt: 'desc' },
     })
 
     // Group by conversation partner
     const conversations = new Map()
-    for (const msg of messages) {
+    for (const message of messages) {
+      const msg = serializeMessageStudent(user, message)
       const partnerId = msg.senderId === user.id ? msg.receiverId : msg.senderId
       const key = studentId ? `${partnerId}-${msg.studentId || 'general'}` : partnerId
       if (!conversations.has(key)) {
@@ -95,6 +98,12 @@ export async function POST(req: NextRequest) {
     if (!receiverId || (!content && !attachmentUrl)) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
+    if (attachmentUrl != null && (typeof attachmentUrl !== 'string' || !/^\/uploads\/messages\/[A-Za-z0-9][A-Za-z0-9._-]{0,180}$/.test(attachmentUrl))) {
+      return NextResponse.json({ error: 'Invalid message attachment URL' }, { status: 400 })
+    }
+    if (studentId != null && typeof studentId !== 'string') {
+      return NextResponse.json({ error: 'Invalid student ID' }, { status: 400 })
+    }
 
     // Every receiver lookup fetches organizationId too — messaging never
     // crosses an org boundary, regardless of the sender/receiver's roles.
@@ -119,26 +128,37 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const message = await prisma.message.create({
-      data: {
-        content: content || '',
-        attachmentUrl: attachmentUrl || null,
-        attachmentName: attachmentName || null,
-        attachmentType: attachmentType || null,
-        attachmentSize: attachmentSize || null,
-        senderId: user.id,
-        receiverId,
-        studentId: studentId || null,
-        organizationId: orgId,
-      },
-      include: {
-        sender: { select: { id: true, name: true, role: true } },
-        receiver: { select: { id: true, name: true, role: true } },
-        student: { select: { id: true, fullName: true, serialNumber: true } },
-      },
+    const message = await prisma.$transaction(async tx => {
+      if (studentId) {
+        const student = await tx.student.findUnique({
+          where: { id: studentId, organizationId: orgId },
+          select: { organizationId: true, agentId: true },
+        })
+        if (!canReadMessageStudent(user, student)) return null
+      }
+
+      return tx.message.create({
+        data: {
+          content: content || '',
+          attachmentUrl: attachmentUrl || null,
+          attachmentName: attachmentName || null,
+          attachmentType: attachmentType || null,
+          attachmentSize: attachmentSize || null,
+          senderId: user.id,
+          receiverId,
+          studentId: studentId || null,
+          organizationId: orgId,
+        },
+        include: {
+          sender: { select: { id: true, name: true, role: true } },
+          receiver: { select: { id: true, name: true, role: true } },
+          student: { select: messageStudentSelect },
+        },
+      })
     })
 
-    return NextResponse.json(message, { status: 201 })
+    if (!message) return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+    return NextResponse.json(serializeMessageStudent(user, message), { status: 201 })
   } catch (error) {
     console.error('Messages POST error:', error)
     return NextResponse.json({ error: 'Failed to send message' }, { status: 500 })

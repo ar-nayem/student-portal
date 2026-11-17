@@ -2,6 +2,8 @@ import Credentials from 'next-auth/providers/credentials'
 import { compare } from 'bcryptjs'
 import { prisma } from './prisma'
 import { logActivity } from './activity'
+import { DELETED, SUPER_DEVELOPER } from './roles'
+import { getActiveSessionAccount } from './session'
 
 export const authConfig: any = {
   providers: [
@@ -21,7 +23,8 @@ export const authConfig: any = {
 
         const user = await prisma.user.findUnique({ where: { email: identifier } })
 
-        if (!user || !user.isActive) return null
+        if (!user || !user.isActive || user.role === DELETED) return null
+        if (user.role === SUPER_DEVELOPER && user.organizationId !== null) return null
 
         const isValid = await compare(credentials.password as string, user.password)
         if (!isValid) return null
@@ -43,37 +46,42 @@ export const authConfig: any = {
   },
   callbacks: {
     async jwt({ token, user, trigger, session }: { token: any; user: any; trigger?: string; session?: any }) {
-      if (user) {
-        token.role = user.role
-        token.id = user.id
-        token.organizationId = user.organizationId ?? null
-      } else if (token.organizationId === undefined) {
-        // Self-heals any session that was already issued before this claim
-        // existed on the token (e.g. everyone logged in at deploy time) —
-        // undefined (never set) is distinct from null (deliberately no org,
-        // like a SUPER_DEVELOPER). Left unhealed, role-based page redirects
-        // that depend on organizationId being present loop forever. Runs
-        // once per session: after this, organizationId is baked into the
-        // re-signed token and this branch won't fire again.
-        const dbUser = await prisma.user.findUnique({
-          where: { id: (token.id ?? token.sub) as string },
-          select: { role: true, organizationId: true },
-        })
-        token.role = dbUser?.role ?? token.role
-        token.organizationId = dbUser?.organizationId ?? null
+      const account = user ?? await getActiveSessionAccount(token)
+      token.role = account?.role ?? DELETED
+      token.organizationId = account?.organizationId ?? null
+      if (account) {
+        token.id = account.id
+        token.name = account.name
+        token.email = account.email
       }
-      // How SUPER_DEVELOPER impersonation mutates an already-issued session:
-      // the client calls next-auth's session.update({ impersonatingOrgId })
-      // (or `{ impersonatingOrgId: null }` to exit) without forcing a re-login.
-      if (trigger === 'update' && session && 'impersonatingOrgId' in session) {
-        token.impersonatingOrgId = session.impersonatingOrgId
+      if (token.role !== SUPER_DEVELOPER) {
+        delete token.impersonatingOrgId
+        return token
+      }
+
+      // Only a live platform developer can enter or leave a tenant via session.update.
+      if (trigger === 'update' && session && typeof session === 'object' && 'impersonatingOrgId' in session) {
+        const organizationId = session.impersonatingOrgId
+        if (organizationId === null) {
+          delete token.impersonatingOrgId
+        } else if (typeof organizationId === 'string' && organizationId) {
+          const organization = await prisma.organization.findUnique({
+            where: { id: organizationId },
+            select: { id: true },
+          })
+          if (organization) token.impersonatingOrgId = organization.id
+        }
       }
       return token
     },
     async session({ session, token }: { session: any; token: any }) {
+      // NextAuth v4 treats an empty session response as signed out.
+      if (token?.role === DELETED) return {}
       if (token) {
         const actualRole = token.role as string
-        const impersonatingOrgId = (token.impersonatingOrgId as string | null) ?? null
+        const impersonatingOrgId = actualRole === SUPER_DEVELOPER && typeof token.impersonatingOrgId === 'string'
+          ? token.impersonatingOrgId || null
+          : null
         const baseOrgId = (token.organizationId as string | null) ?? null
         // While impersonating, expose the effective role ('OWNER') and the
         // active org (the impersonated one) so every existing client-side

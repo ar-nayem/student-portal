@@ -27,12 +27,6 @@ export async function middleware(request: NextRequest) {
     isPublicOffersRead ||
     isChatbot
   ) {
-    // An already-signed-in visitor hitting /login goes to their dashboard;
-    // the marketing pages stay readable to them, since an owner may well be
-    // looking up pricing while logged in.
-    if (token && pathname === '/login') {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
-    }
     return NextResponse.next()
   }
 
@@ -45,16 +39,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    // SUPER_DEVELOPER platform console — the one place that must NOT pass
-    // through the OWNER-equivalence below, since it's the operator's own
-    // cross-org area, not something impersonation should ever grant.
-    const superDeveloperOnlyPaths = ['/dashboard/platform', '/api/platform']
-    if (superDeveloperOnlyPaths.some(p => pathname.startsWith(p)) && token.role !== 'SUPER_DEVELOPER') {
-      if (pathname.startsWith('/api/')) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-      }
-      return NextResponse.redirect(new URL('/dashboard', request.url))
-    }
+    // The platform layout and API handlers check the live account role.
+    // A signed JWT can still carry the account's previous role after a promotion.
 
     // Middleware runs at the edge on the raw JWT only — it can't call
     // getEffectiveUser (Node runtime, needs Prisma) so it never sees the
@@ -64,11 +50,6 @@ export async function middleware(request: NextRequest) {
     // getEffectiveUser — middleware only decides whether the role tier may
     // reach the URL shape at all.
     const isOwnerTier = (role: string) => role === 'OWNER' || role === 'SUPER_DEVELOPER'
-
-    // Admin dashboard - ADMIN and OWNER
-    if (pathname.startsWith('/dashboard/admin') && token.role !== 'ADMIN' && !isOwnerTier(token.role as string)) {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
-    }
 
     // OWNER-only routes: agents management, document requirements, field requirements.
     // /dashboard/portals is deliberately NOT here — an admin can be granted access to

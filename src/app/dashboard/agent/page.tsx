@@ -7,16 +7,18 @@ import AgentDashboard from './AgentDashboard'
 export default async function AgentPage() {
   const session = await getServerSession(authConfig) as any
   
-  if (!session?.user || session.user.role !== 'AGENT') {
-    redirect('/login')
-  }
+  if (!session?.user) redirect('/login')
+  if (session.user.role !== 'AGENT') redirect('/dashboard')
 
+  if (!session.user.organizationId) redirect('/login')
+
+  const where = { organizationId: session.user.organizationId, agentId: session.user.id }
   const [studentsCount, pendingCount, approvedCount, recentStudents] = await Promise.all([
-    prisma.student.count({ where: { agentId: session.user.id } }),
-    prisma.student.count({ where: { agentId: session.user.id, status: 'PENDING' } }),
-    prisma.student.count({ where: { agentId: session.user.id, status: 'APPROVED' } }),
+    prisma.student.count({ where }),
+    prisma.student.count({ where: { ...where, status: 'PENDING' } }),
+    prisma.student.count({ where: { ...where, status: 'APPROVED' } }),
     prisma.student.findMany({
-      where: { agentId: session.user.id },
+      where,
       take: 10,
       orderBy: { createdAt: 'desc' },
       include: { documents: true }

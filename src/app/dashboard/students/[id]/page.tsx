@@ -3,21 +3,64 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, CheckCircle, XCircle, Trash2, MessageSquare, Pencil, Download, Wallet } from 'lucide-react'
+import { ArrowLeft, FileText, Trash2, MessageSquare, Pencil, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useSession } from 'next-auth/react'
 import { useLanguage } from '@/src/lib/i18n/LanguageContext'
 import { formatMoney } from '@/src/lib/money'
+import { StudentAssignmentForm, useAssignableAgents } from '@/src/components/StudentAssignmentForm'
+import { readReviewHistoryDetails, reviewDecisionsFor, type ReviewDecision } from '@/src/lib/studentReview'
+import { ApplicationsPanel } from './applications-panel'
+
+type ReviewHistoryEntry = {
+  id: string
+  fromStatus: string | null
+  toStatus: string
+  note: string | null
+  actor: { name: string } | null
+  createdAt: string
+}
+
+type AssignmentHistoryEntry = {
+  id: string
+  fromAgent: { name: string } | null
+  toAgent: { name: string } | null
+  note: string | null
+  actor: { name: string } | null
+  createdAt: string
+}
+
+type CorrectionDocument = {
+  id: string
+  originalName: string
+  organizationId: string | null
+  createdAt: string
+}
 
 export default function StudentDetailPage() {
   const { id } = useParams()
   const router = useRouter()
   const { data: session } = useSession()
-  const { t } = useLanguage()
+  const { t, formatDateTime } = useLanguage()
   const [student, setStudent] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [financeSummary, setFinanceSummary] = useState<{ charged: number; spent: number } | null>(null)
+  const [reviewDecision, setReviewDecision] = useState<ReviewDecision | ''>('')
+  const [reviewNote, setReviewNote] = useState('')
+  const [correctedDocumentIds, setCorrectedDocumentIds] = useState<string[]>([])
+  const [savingReview, setSavingReview] = useState(false)
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER'
+  const { agents, failed: agentsFailed } = useAssignableAgents(isAdmin, session?.user?.organizationId)
+  const availableDecisions = isAdmin && student ? reviewDecisionsFor(student.status) : []
+  const canResubmit = session?.user?.role === 'AGENT' && student?.agentId === session.user.id && student.status === 'NEEDS_REVISION'
+  const activeRevision = canResubmit
+    ? student.reviewHistory?.find((event: ReviewHistoryEntry) => event.toStatus === 'NEEDS_REVISION')
+    : undefined
+  const correctionDocuments = activeRevision
+    ? (student.documents as CorrectionDocument[]).filter(doc =>
+        doc.organizationId === student.organizationId && Date.parse(doc.createdAt) > Date.parse(activeRevision.createdAt))
+    : []
+  const noteRequired = reviewDecision === 'REJECTED' || reviewDecision === 'NEEDS_REVISION'
 
   useEffect(() => {
     fetchStudent()
@@ -38,11 +81,13 @@ export default function StudentDetailPage() {
 
   async function fetchStudent() {
     try {
-      const res = await fetch(`/api/students/${id}`, { credentials: 'include' })
+      const res = await fetch(`/api/students/${id}`, { credentials: 'include', cache: 'no-store' })
       if (!res.ok) throw new Error()
       const data = await res.json()
       setStudent(data)
+      setCorrectedDocumentIds([])
     } catch {
+      setStudent(null)
       toast.error(t('students.failedLoadStudent'))
     } finally {
       setLoading(false)
@@ -58,17 +103,55 @@ export default function StudentDetailPage() {
     } catch { toast.error(t('students.deleteFailed')) }
   }
 
-  async function updateStatus(newStatus: string) {
+  async function saveReview(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (savingReview || student?.id !== id || (canResubmit ? !correctedDocumentIds.length : !reviewDecision)) return
+
+    const note = reviewNote.trim()
+    if (!canResubmit && noteRequired && !note) {
+      toast.error(t('students.reviewNoteMissing'))
+      return
+    }
+
+    setSavingReview(true)
     try {
-      const res = await fetch(`/api/students/${id}`, {
-        method: 'PATCH',
+      const action = canResubmit ? 'resubmit' : 'review'
+      const res = await fetch(`/api/students/${id}/${action}`, {
+        method: canResubmit ? 'POST' : 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify(canResubmit
+          ? { note, correctedDocumentIds, updatedAt: student.updatedAt }
+          : { status: reviewDecision, note, updatedAt: student.updatedAt }),
       })
-      if (res.ok) { toast.success(`${t('students.statusUpdated')} ${newStatus}`); fetchStudent() }
-      else toast.error(t('students.updateFailed'))
-    } catch { toast.error(t('students.updateFailed')) }
+      if (res.status === 409) {
+        toast.error(t('students.reviewChanged'))
+        setReviewDecision('')
+        setReviewNote('')
+        setCorrectedDocumentIds([])
+        await fetchStudent()
+        return
+      }
+      if (!res.ok) throw new Error()
+
+      const updated = await res.json()
+      setStudent((current: any) => current?.id === updated.id ? {
+        ...current,
+        status: updated.status,
+        updatedAt: updated.updatedAt,
+        reviewHistory: updated.reviewHistory,
+      } : current)
+      setReviewDecision('')
+      setReviewNote('')
+      setCorrectedDocumentIds([])
+      toast.success(canResubmit
+        ? t('students.resubmittedForReview')
+        : `${t('students.statusUpdated')} ${getStatusLabel(updated.status)}`)
+    } catch {
+      toast.error(t('students.updateFailed'))
+    } finally {
+      setSavingReview(false)
+    }
   }
 
   async function deleteStudent() {
@@ -84,7 +167,8 @@ export default function StudentDetailPage() {
     const styles: Record<string, string> = {
       PENDING: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200',
       APPROVED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200',
-      REJECTED: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border-rose-200'
+      REJECTED: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border-rose-200',
+      NEEDS_REVISION: 'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300 border-orange-200',
     }
     return styles[status] || 'bg-muted text-foreground border-border'
   }
@@ -94,12 +178,23 @@ export default function StudentDetailPage() {
       PENDING: t('common.statusPending'),
       APPROVED: t('common.statusApproved'),
       REJECTED: t('common.statusRejected'),
+      NEEDS_REVISION: t('students.needsRevision'),
     }
     return labels[status] || status
   }
 
+  const decisionLabels: Record<ReviewDecision, string> = {
+    APPROVED: t('students.approve'),
+    REJECTED: t('students.reject'),
+    NEEDS_REVISION: t('students.requestRevision'),
+  }
+
   if (loading) return <div className="p-10 text-center text-muted-foreground">{t('common.loading')}</div>
   if (!student) return <div className="p-10 text-center text-muted-foreground">{t('students.studentNotFound')}</div>
+
+  const documentNames = new Map((student.documents as CorrectionDocument[])
+    .filter(doc => doc.organizationId === student.organizationId)
+    .map(doc => [doc.id, doc.originalName]))
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -117,7 +212,8 @@ export default function StudentDetailPage() {
               </span>
             </div>
             <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-              <span className="text-sm text-muted-foreground">{t('students.submittedBy')} <span className="font-medium text-foreground">{student.agent?.name}</span></span>
+              <span className="text-sm text-muted-foreground">{t('students.submittedBy')}: <span className="font-medium text-foreground">{student.createdBy?.name ?? t('students.unknownCreator')}</span></span>
+              <span className="text-sm text-muted-foreground">{t('students.assignedAgent')}: <span className="font-medium text-foreground">{student.agent?.name ?? t('students.unassigned')}</span></span>
               {student.serialNumber && (
                 <span className="text-xs font-mono font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
                   {student.serialNumber}
@@ -127,23 +223,13 @@ export default function StudentDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {isAdmin && (
+          {isAdmin && student.agentId && (
             <Link
               href={`/dashboard/messages?with=${student.agentId}&studentId=${student.id}&studentName=${encodeURIComponent(student.fullName)}`}
               className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition flex items-center gap-2 text-sm font-medium shadow-sm shadow-indigo-500/20"
             >
               <MessageSquare className="w-4 h-4" /> {t('students.messageAgent')}
             </Link>
-          )}
-          {isAdmin && student.status === 'PENDING' && (
-            <>
-              <button onClick={() => updateStatus('APPROVED')} className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition flex items-center gap-2 text-sm font-medium shadow-sm shadow-emerald-500/20">
-                <CheckCircle className="w-4 h-4" /> {t('students.approve')}
-              </button>
-              <button onClick={() => updateStatus('REJECTED')} className="px-4 py-2.5 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition flex items-center gap-2 text-sm font-medium shadow-sm shadow-rose-500/20">
-                <XCircle className="w-4 h-4" /> {t('students.reject')}
-              </button>
-            </>
           )}
           <a
             href={`/api/students/${id}/export`}
@@ -287,10 +373,162 @@ export default function StudentDetailPage() {
               <p className="text-sm text-muted-foreground">{student.notes}</p>
             </Section>
           )}
+          <ApplicationsPanel
+            studentId={student.id}
+            canManage={isAdmin}
+            canCreate={student.status !== 'PENDING' || (student.reviewHistory?.length ?? 0) > 0}
+          />
         </div>
 
-        {/* Right: Finance + Documents Summary */}
+        {/* Review, finance and documents */}
         <div className="space-y-6">
+          {(availableDecisions.length > 0 || canResubmit) && (
+            <Section title={t('students.documentReview')}>
+              <form onSubmit={saveReview} className="space-y-3">
+                {canResubmit ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">{t('students.resubmissionInstructions')}</p>
+                    <Link href={`/dashboard/students/${id}/documents`} className="inline-block text-sm font-medium text-primary hover:underline">
+                      {t('students.manageDocuments')}
+                    </Link>
+                    {correctionDocuments.length > 0 ? (
+                      <fieldset disabled={savingReview} className="space-y-2">
+                        <legend className="mb-1 text-sm font-medium text-foreground">{t('students.selectCorrectionDocuments')}</legend>
+                        {correctionDocuments.map(doc => (
+                          <label key={doc.id} className="flex items-start gap-2 text-sm text-foreground">
+                            <input
+                              type="checkbox"
+                              checked={correctedDocumentIds.includes(doc.id)}
+                              onChange={event => {
+                                const checked = event.target.checked
+                                setCorrectedDocumentIds(ids => checked ? [...ids, doc.id] : ids.filter(id => id !== doc.id))
+                              }}
+                              className="mt-1"
+                            />
+                            <span className="min-w-0 break-words">
+                              {doc.originalName}
+                              <time dateTime={doc.createdAt} className="block text-xs text-muted-foreground">
+                                {formatDateTime(doc.createdAt)}
+                              </time>
+                            </span>
+                          </label>
+                        ))}
+                      </fieldset>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">{t('students.noCorrectionDocuments')}</p>
+                    )}
+                  </>
+                ) : (
+                  <label className="block text-sm font-medium text-foreground">
+                    {t('students.reviewDecision')}
+                    <select
+                      required
+                      value={reviewDecision}
+                      onChange={event => setReviewDecision(event.target.value as ReviewDecision | '')}
+                      className="mt-1 block w-full rounded-lg border border-border bg-card px-3 py-2 text-sm"
+                    >
+                      <option value="">{t('students.chooseReviewDecision')}</option>
+                      {availableDecisions.map(decision => <option key={decision} value={decision}>{decisionLabels[decision]}</option>)}
+                    </select>
+                  </label>
+                )}
+                {(canResubmit || reviewDecision) && (
+                  <label className="block text-sm font-medium text-foreground">
+                    {canResubmit
+                      ? t('students.resubmissionNote')
+                      : t(noteRequired ? 'students.reviewNoteRequired' : 'students.reviewNoteOptional')}
+                    <textarea
+                      required={!canResubmit && noteRequired}
+                      rows={3}
+                      value={reviewNote}
+                      onChange={event => setReviewNote(event.target.value)}
+                      className="mt-1 block w-full rounded-lg border border-border bg-card px-3 py-2 text-sm"
+                    />
+                  </label>
+                )}
+                <button
+                  type="submit"
+                  disabled={savingReview || (canResubmit ? !correctedDocumentIds.length : !reviewDecision)}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {t(canResubmit ? 'students.resubmitForReview' : 'students.saveReviewDecision')}
+                </button>
+              </form>
+            </Section>
+          )}
+
+          {isAdmin && (
+            <Section title={t('students.assignmentHistory')}>
+              <div className="space-y-4">
+                {agentsFailed && <p className="text-sm text-rose-600" role="alert">{t('students.assignmentAgentsFailed')}</p>}
+                <StudentAssignmentForm key={`${student.id}-${student.assignmentVersion}`} student={student} agents={agents} onSaved={fetchStudent} />
+                {student.assignmentHistory?.length ? (
+                  <ol className="divide-y divide-border border-t border-border">
+                    {student.assignmentHistory.map((event: AssignmentHistoryEntry) => (
+                      <li key={event.id} className="space-y-1 py-3 last:pb-0">
+                        <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-foreground">
+                          <span>{event.fromAgent?.name ?? t('students.unassigned')}</span>
+                          <span aria-hidden="true">→</span>
+                          <span>{event.toAgent?.name ?? t('students.unassigned')}</span>
+                        </p>
+                        <p className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+                          <span>{event.actor?.name ?? t('students.unknownReviewActor')}</span>
+                          <time dateTime={event.createdAt}>{formatDateTime(event.createdAt)}</time>
+                        </p>
+                        {event.note && <p className="whitespace-pre-wrap break-words text-sm text-foreground">{event.note}</p>}
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t('students.assignmentHistoryEmpty')}</p>
+                )}
+              </div>
+            </Section>
+          )}
+          <Section title={t('students.reviewHistory')}>
+            {student.reviewHistory?.length ? (
+              <ol className="divide-y divide-border">
+                {student.reviewHistory.map((event: ReviewHistoryEntry) => {
+                  const { note, correctedDocuments } = readReviewHistoryDetails(event, documentNames)
+                  return (
+                    <li key={event.id} className="space-y-1 py-3 first:pt-0 last:pb-0">
+                      {event.toStatus === 'PENDING' && (
+                        <p className="text-sm font-semibold">{t('students.resubmittedForReview')}</p>
+                      )}
+                      <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-foreground">
+                        {event.fromStatus && (
+                          <>
+                            <span className="text-muted-foreground">{getStatusLabel(event.fromStatus)}</span>
+                            <span aria-hidden="true">→</span>
+                          </>
+                        )}
+                        <span className={`rounded-md border px-1.5 py-0.5 text-xs ${getStatusBadge(event.toStatus)}`}>
+                          {getStatusLabel(event.toStatus)}
+                        </span>
+                      </p>
+                      <p className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+                        <span className="break-words">{event.actor?.name || t('students.unknownReviewActor')}</span>
+                        <time dateTime={event.createdAt}>{formatDateTime(event.createdAt)}</time>
+                      </p>
+                      {correctedDocuments.length > 0 && (
+                        <div className="text-sm text-foreground">
+                          <p className="font-medium">{t('students.correctedDocuments')}</p>
+                          <ul className="list-disc space-y-0.5 pl-5">
+                            {correctedDocuments.map(doc => (
+                              <li key={doc.id} className="break-words">{doc.originalName ?? t('students.correctionFilenameUnavailable')}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {note && <p className="whitespace-pre-wrap break-words text-sm text-foreground">{note}</p>}
+                    </li>
+                  )
+                })}
+              </ol>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t('students.reviewHistoryEmpty')}</p>
+            )}
+          </Section>
           <div className="bg-card rounded-2xl shadow-sm border border-border/60 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-foreground">{t('finance.title')}</h3>

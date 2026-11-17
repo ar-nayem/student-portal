@@ -127,11 +127,12 @@ export default function FinancePage() {
 
   const feeSummary = useMemo(() => {
     const myId = session?.user?.id
-    // Kept to students assigned to me specifically (not every org student,
-    // even for owner/admin) so this stays consistent with "charged" below —
-    // that's derived from my own logged transactions only, matching this
-    // page's personal-only scope everywhere else.
-    const relevantStudents = students.filter((s) => s.agentId === myId)
+    // Include unassigned students I uploaded as an admin. An agent's list
+    // remains limited to current assignments, even if they uploaded a record.
+    const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER'
+    const relevantStudents = myId ? students.filter(s =>
+      s.agentId === myId || (isAdmin && s.agentId === null && s.createdById === myId)
+    ) : []
 
     const chargedByStudent: Record<string, number> = {}
     for (const tx of allMyTransactions) {
@@ -166,10 +167,10 @@ export default function FinancePage() {
   }, [transactions])
 
   const perStudent = useMemo(() => {
-    const map: Record<string, { student: any; charged: number; spent: number }> = {}
+    const map: Record<string, { student: any; canViewStudent: boolean; charged: number; spent: number }> = {}
     for (const tx of transactions) {
       if (!tx.student) continue
-      if (!map[tx.studentId]) map[tx.studentId] = { student: tx.student, charged: 0, spent: 0 }
+      if (!map[tx.studentId]) map[tx.studentId] = { student: tx.student, canViewStudent: tx.canViewStudent, charged: 0, spent: 0 }
       if (tx.status !== 'COMPLETED') continue
       if (tx.type === 'INCOME') map[tx.studentId].charged += tx.amount
       else map[tx.studentId].spent += tx.amount
@@ -359,18 +360,26 @@ export default function FinancePage() {
             <p className="text-sm text-muted-foreground">{t('finance.noTransactions')}</p>
           ) : (
             <div className="space-y-1 max-h-72 overflow-y-auto">
-              {perStudent.map((row) => (
-                <Link key={row.student.id} href={`/dashboard/students/${row.student.id}/finance`} className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-muted transition-colors">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{row.student.fullName}</p>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{row.student.status}</span>
-                  </div>
-                  <div className="text-right shrink-0 ml-3">
-                    <p className={`text-sm font-bold ${row.charged - row.spent >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatMoney(row.charged - row.spent)}</p>
-                    <p className="text-[11px] text-muted-foreground">{formatMoney(row.charged)} / {formatMoney(row.spent)}</p>
-                  </div>
-                </Link>
-              ))}
+              {perStudent.map(row => {
+                const rowClass = "flex items-center justify-between px-3 py-2.5 rounded-xl"
+                const content = (
+                  <>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{row.student.fullName}</p>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{row.student.status}</span>
+                    </div>
+                    <div className="text-right shrink-0 ml-3">
+                      <p className={`text-sm font-bold ${row.charged - row.spent >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatMoney(row.charged - row.spent)}</p>
+                      <p className="text-[11px] text-muted-foreground">{formatMoney(row.charged)} / {formatMoney(row.spent)}</p>
+                    </div>
+                  </>
+                )
+                return row.canViewStudent ? (
+                  <Link key={row.student.id} href={`/dashboard/students/${row.student.id}/finance`} className={rowClass + ' hover:bg-muted transition-colors'}>{content}</Link>
+                ) : (
+                  <div key={row.student.id} className={rowClass}>{content}</div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -403,7 +412,11 @@ export default function FinancePage() {
                   <tr key={tx.id} className="hover:bg-muted/60 transition-colors">
                     <td className="px-6 py-4 text-sm text-muted-foreground">{formatDate(tx.transactionDate)}</td>
                     <td className="px-6 py-4 text-sm">
-                      <Link href={`/dashboard/students/${tx.studentId}/finance`} className="font-medium text-indigo-600 hover:text-indigo-700">{tx.student?.fullName}</Link>
+                      {tx.canViewStudent ? (
+                        <Link href={`/dashboard/students/${tx.studentId}/finance`} className="font-medium text-indigo-600 hover:text-indigo-700">{tx.student?.fullName}</Link>
+                      ) : (
+                        <span>{tx.student?.fullName}</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">{t(`finance.${CATEGORY_KEYS[tx.category]}`)}</td>
                     <td className={`px-6 py-4 text-sm font-semibold ${tx.type === 'INCOME' ? 'text-emerald-600' : 'text-rose-600'}`}>
@@ -416,9 +429,11 @@ export default function FinancePage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1">
-                        <Link href={`/dashboard/students/${tx.studentId}/finance`} className="text-indigo-600 hover:text-indigo-700 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors inline-flex">
-                          <Eye className="w-4 h-4" />
-                        </Link>
+                        {tx.canViewStudent && (
+                          <Link href={`/dashboard/students/${tx.studentId}/finance`} className="text-indigo-600 hover:text-indigo-700 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors inline-flex">
+                            <Eye className="w-4 h-4" />
+                          </Link>
+                        )}
                         {tx.type === 'INCOME' && hasFeature('finance_receipt') && (
                           <Link href={`/dashboard/students/${tx.studentId}/finance/receipt/${tx.id}`} target="_blank" className="text-slate-500 hover:text-slate-700 p-1.5 rounded-lg hover:bg-muted transition-colors inline-flex" title={t('finance.receiptTitle')}>
                             <Receipt className="w-4 h-4" />

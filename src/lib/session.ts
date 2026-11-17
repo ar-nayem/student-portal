@@ -1,21 +1,27 @@
-import { getToken } from 'next-auth/jwt'
+import { getToken, type JWT } from 'next-auth/jwt'
 import { NextRequest } from 'next/server'
 import { prisma } from './prisma'
-import { SUPER_DEVELOPER } from './roles'
+import { DELETED, SUPER_DEVELOPER } from './roles'
 import { parseFeatures, type FeatureKey } from './features'
 import { requireAuthSecret } from './authSecret'
 
 const secret = requireAuthSecret()
 
+export async function getActiveSessionAccount(token: Pick<JWT, 'sub' | 'id'>) {
+  const id = token.sub ?? token.id
+  if (!id) return null
+
+  const account = await prisma.user.findUnique({
+    where: { id, isActive: true, role: { not: DELETED } },
+    select: { id: true, email: true, name: true, role: true, organizationId: true },
+  })
+  if (account?.role === SUPER_DEVELOPER && account.organizationId !== null) return null
+  return account
+}
+
 export async function getSessionUser(req: NextRequest) {
   const token = await getToken({ req, secret })
-  if (!token) return null
-  return {
-    id: token.sub as string,
-    email: token.email as string,
-    name: token.name as string,
-    role: token.role as string,
-  }
+  return token ? getActiveSessionAccount(token) : null
 }
 
 export interface EffectiveUser {
@@ -27,45 +33,38 @@ export interface EffectiveUser {
   role: string
   /** The real, un-impersonated role — use this for audit logging only. */
   actualRole: string
-  /** Active org context: the impersonated org while impersonating, else the
-   *  user's own org. Null only for a SUPER_DEVELOPER not impersonating anyone. */
+  /** The impersonated org while impersonating, otherwise the account's own org. */
   organizationId: string | null
   isImpersonating: boolean
 }
 
-// Like getSessionUser, but also resolves the active organization context
-// (including SUPER_DEVELOPER impersonation) and enforces org suspension —
-// a suspended org's users get treated as logged-out the moment they hit any
-// route using this helper. Use this for every org-scoped route; getSessionUser
-// stays available for routes that only need role, no org awareness.
+// Org-scoped routes use the live account's role and membership, resolve
+// platform impersonation, and enforce tenant suspension and expiration.
 export async function getEffectiveUser(req: NextRequest): Promise<EffectiveUser | null> {
   const token = await getToken({ req, secret })
   if (!token) return null
 
-  const actualRole = token.role as string
-  const baseOrgId = (token.organizationId as string | null | undefined) ?? null
-  const impersonatingOrgId = (token.impersonatingOrgId as string | null | undefined) ?? null
-  const activeOrgId = impersonatingOrgId ?? baseOrgId
+  const account = await getActiveSessionAccount(token)
+  if (!account) return null
 
-  if (activeOrgId) {
+  const actualRole = account.role
+  const impersonatingOrgId = actualRole === SUPER_DEVELOPER && typeof token.impersonatingOrgId === 'string'
+    ? token.impersonatingOrgId || null
+    : null
+  const activeOrgId = impersonatingOrgId ?? account.organizationId
+
+  // Platform operators can inspect suspended and expired organizations.
+  if (activeOrgId && actualRole !== SUPER_DEVELOPER) {
     const org = await prisma.organization.findUnique({
       where: { id: activeOrgId },
       select: { status: true, accessExpiresAt: true },
     })
-    // An elapsed access window locks the org out exactly like suspension —
-    // a lapsed subscription and a suspended account are the same thing from
-    // the app's side. The SUPER_DEVELOPER is exempt so an expired tenant can
-    // still be inspected and renewed.
-    const expired = !!org?.accessExpiresAt && org.accessExpiresAt.getTime() <= Date.now()
-    if (!org || org.status === 'SUSPENDED' || expired) {
-      if (actualRole !== SUPER_DEVELOPER) return null
-    }
+    if (!org || org.status === 'SUSPENDED') return null
+    if (org.accessExpiresAt && org.accessExpiresAt.getTime() <= Date.now()) return null
   }
 
   return {
-    id: token.sub as string,
-    email: token.email as string,
-    name: token.name as string,
+    ...account,
     role: impersonatingOrgId ? 'OWNER' : actualRole,
     actualRole,
     organizationId: activeOrgId,
@@ -106,8 +105,7 @@ export async function orgHasAnyFeature(organizationId: string | null, featureKey
 }
 
 // University Portals visibility for admins is a per-account grant the owner
-// toggles at any time — the JWT only carries role (set at login), so this
-// needs a live DB read rather than trusting a stale token claim.
+// toggles at any time. Read the grant from the current account.
 export async function canAccessPortals(user: { id: string; role: string; organizationId?: string | null } | null): Promise<boolean> {
   if (!user) return false
   if (!(await orgHasFeature(user.organizationId ?? null, 'university_portals'))) return false
@@ -119,9 +117,7 @@ export async function canAccessPortals(user: { id: string; role: string; organiz
 
 // Official documents (admission letters, JW, pre-admission letters, etc.) are
 // sensitive enough that the owner decides which admins may touch them.
-// Agents and owners always can; a plain admin needs the explicit grant —
-// same live-DB-read pattern as canAccessPortals, since the JWT only carries
-// role at login time and this flag can change mid-session.
+// Agents and owners always can; an admin needs the explicit grant.
 export async function canManageOfficialDocs(user: { id: string; role: string; organizationId?: string | null } | null): Promise<boolean> {
   if (!user) return false
   if (!(await orgHasFeature(user.organizationId ?? null, 'official_documents'))) return false

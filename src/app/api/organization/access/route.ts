@@ -1,36 +1,27 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
-import { getToken } from 'next-auth/jwt'
 import { SUPER_DEVELOPER } from '@/src/lib/roles'
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuthSecret } from '@/src/lib/authSecret'
+import { getSessionUser } from '@/src/lib/session'
 
-const secret = requireAuthSecret()
-
-// Deliberately reads the JWT directly instead of going through
-// getEffectiveUser: that helper returns null for a suspended or expired org,
-// which is exactly the state this endpoint exists to describe. It has to
-// keep answering when everything else has stopped, so the dashboard can show
-// "your subscription ended" instead of a wall of failed requests.
+// Read the live account without applying the organization access restriction
+// so the dashboard can explain an expired or suspended subscription.
 export async function GET(req: NextRequest) {
   try {
-    const token = await getToken({ req, secret })
-    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const role = token.role as string
-    const orgId = ((token.impersonatingOrgId as string | null) ?? (token.organizationId as string | null)) || null
+    const user = await getSessionUser(req)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     // A platform operator has no org window of their own to report on.
-    if (!orgId || role === SUPER_DEVELOPER) {
+    if (!user.organizationId || user.role === SUPER_DEVELOPER) {
       return NextResponse.json({ state: 'OK', isTrial: false, accessExpiresAt: null, daysLeft: null })
     }
 
     const org = await prisma.organization.findUnique({
-      where: { id: orgId },
+      where: { id: user.organizationId },
       select: { name: true, status: true, accessExpiresAt: true, isTrial: true, suspendedReason: true },
     })
-    if (!org) return NextResponse.json({ state: 'MISSING' })
+    if (!org) return NextResponse.json({ organizationId: user.organizationId, state: 'MISSING' })
 
     const expiresAt = org.accessExpiresAt
     const msLeft = expiresAt ? expiresAt.getTime() - Date.now() : null
@@ -41,6 +32,7 @@ export async function GET(req: NextRequest) {
         : 'OK'
 
     return NextResponse.json({
+      organizationId: user.organizationId,
       state,
       organizationName: org.name,
       isTrial: org.isTrial,

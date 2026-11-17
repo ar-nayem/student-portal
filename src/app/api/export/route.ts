@@ -2,7 +2,8 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
 import { getEffectiveUser, isAdminRole, orgHasFeature } from '@/src/lib/session'
-import { orgWhere } from '@/src/lib/orgScope'
+import type { Prisma } from '@prisma/client'
+import { adminStudentAssignmentFilter } from '@/src/lib/studentAssignment'
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 
@@ -21,14 +22,15 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status')
     const agentId = searchParams.get('agentId')
 
-    const where: any = { ...orgWhere(user) }
+    if (!user.organizationId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const where: Prisma.StudentWhereInput = { organizationId: user.organizationId, ...await adminStudentAssignmentFilter(user, agentId) }
     if (status) where.status = status
-    if (agentId) where.agentId = agentId
 
     const students = await prisma.student.findMany({
       where,
       include: {
-        agent: { select: { name: true, email: true } },
+        agent: { select: { name: true } },
+        createdBy: { select: { name: true } },
         documents: true,
         educationHistory: true,
         workExperience: true,
@@ -77,6 +79,7 @@ export async function GET(req: NextRequest) {
       'Program Applied': s.programApplied || '',
       'Status': s.status,
       'Agent': s.agent?.name || '',
+      'Submitted by': s.createdBy?.name || '',
       'Documents Count': s.documents.length,
       'Education Count': s.educationHistory.length,
       'Work Count': s.workExperience.length,

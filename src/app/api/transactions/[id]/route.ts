@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { prisma } from '@/src/lib/prisma'
 import { getEffectiveUser, isAdminRole, orgHasFeature } from '@/src/lib/session'
 import { isSameOrg } from '@/src/lib/orgScope'
+import { canAccessStudent } from '@/src/lib/studentAssignment'
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity } from '@/src/lib/activity'
 import { TRANSACTION_CATEGORIES, PAYMENT_METHODS, TRANSACTION_STATUSES } from '@/src/lib/money'
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const transaction = await prisma.transaction.findUnique({
       where: { id },
       include: {
-        student: { select: { id: true, fullName: true, serialNumber: true, mainEmail: true, passportNo: true, totalFee: true } },
+        student: { select: { id: true, fullName: true, serialNumber: true, mainEmail: true, passportNo: true, totalFee: true, agentId: true, organizationId: true } },
         agent: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true, email: true, phone: true, wechat: true, avatar: true, bio: true } },
       },
@@ -30,7 +31,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    return NextResponse.json(transaction)
+    // Agents retain the receipts for their own ledger entries. The live
+    // student's contact and fee details follow current ownership.
+    const { student, ...ledger } = transaction
+    const canViewStudent = student.organizationId === user.organizationId && canAccessStudent(user, student)
+    const { id: studentId, fullName, serialNumber, mainEmail, passportNo, totalFee } = student
+    return NextResponse.json({
+      ...ledger,
+      canViewStudent,
+      student: { id: studentId, fullName, serialNumber, ...(canViewStudent ? { mainEmail, passportNo, totalFee } : {}) },
+    })
   } catch (error) {
     console.error('GET /api/transactions/[id] error:', error)
     return NextResponse.json({ error: 'Failed to fetch transaction' }, { status: 500 })

@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/src/lib/prisma'
 import { getEffectiveUser, isAdminRole } from '@/src/lib/session'
-import { orgWhere } from '@/src/lib/orgScope'
+import type { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 
 // Lightweight lookup for @mention autocomplete in messages, and for tagging
@@ -15,9 +15,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    if (!user.organizationId || (!isAdminRole(user.role) && user.role !== 'AGENT')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const q = new URL(req.url).searchParams.get('q')?.trim() || ''
 
-    const where: any = { ...orgWhere(user), ...(isAdminRole(user.role) ? {} : { agentId: user.id }) }
+    const where: Prisma.StudentWhereInput = { organizationId: user.organizationId, ...(isAdminRole(user.role) ? {} : { agentId: user.id }) }
     if (q) {
       where.OR = [
         { serialNumber: { contains: q } },

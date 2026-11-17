@@ -6,6 +6,7 @@ import { getEffectiveUser, orgHasAnyFeature, orgHasFeature } from '@/src/lib/ses
 import { orgWhere, requireOrgId } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
 import { logActivity } from '@/src/lib/activity'
+import { AGENT, isOrgAssignableRole } from '@/src/lib/roles'
 
 export async function GET(req: NextRequest) {
   try {
@@ -68,7 +69,10 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { name, email, password, role } = body
+    const { name, email, password, role = AGENT } = body
+    if (!isOrgAssignableRole(role)) {
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
+    }
 
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
@@ -81,7 +85,7 @@ export async function POST(req: NextRequest) {
         name,
         email,
         password: hashed,
-        role: role || 'AGENT',
+        role,
         isActive: true,
         organizationId: orgId
       },
