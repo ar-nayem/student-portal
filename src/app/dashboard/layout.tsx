@@ -216,7 +216,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navItems = isSuperDeveloper
     ? [...platformNav, { label: t('nav.settings'), href: '/dashboard/profile', icon: Settings }]
-    : [...adminNav, ...(canPublishWebsite ? [{ label: 'Website offers & universities', href: '/dashboard/website', icon: Globe }] : []), ...portalsNav, ...ownerNav, ...baseNav]
+    : [...adminNav, ...(canPublishWebsite ? [...(hasFeature('offers') ? [{ label: 'University offers', href: '/dashboard/admission-offers', icon: GraduationCap }] : []), { label: 'Website offers & universities', href: '/dashboard/website', icon: Globe }] : []), ...portalsNav, ...ownerNav, ...baseNav]
 
   // A lapsed or suspended organization gets a plain explanation instead of a
   // dashboard whose every request fails. Sign out stays reachable so a user
