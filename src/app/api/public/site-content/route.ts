@@ -11,7 +11,7 @@ export async function GET() {
     select: { organizationId: true },
   }) : []
   const organizationIds = Array.from(new Set(editorOrganizations.map(user => user.organizationId).filter((id): id is string => !!id)))
-  const [items, offers] = await Promise.all([
+  const [items, admissionOffers, portalOffers] = await Promise.all([
     prisma.siteContent.findMany({
       where: { published: true },
       orderBy: [{ sortOrder: 'asc' }, { updatedAt: 'desc' }],
@@ -22,6 +22,24 @@ export async function GET() {
       where: { organizationId: { in: organizationIds }, status: 'PUBLISHED', AND: [{ OR: [{ startsAt: null }, { startsAt: { lte: now } }] }, { OR: [{ endsAt: null }, { endsAt: { gte: now } }] }] },
       orderBy: [{ updatedAt: 'desc' }],
     }) : Promise.resolve([]),
+    organizationIds.length ? prisma.offer.findMany({
+      where: {
+        organizationId: { in: organizationIds },
+        publishToWebsite: true,
+        isActive: true,
+        startDate: { lte: now },
+        AND: [{ OR: [{ endDate: null }, { endDate: { gte: now } }] }],
+      },
+      orderBy: [{ updatedAt: 'desc' }],
+    }) : Promise.resolve([]),
   ])
-  return NextResponse.json({ items, admissionOffers: offers.map(offer => publicAdmissionOffer(offer)) }, { headers: { 'Cache-Control': 'public, max-age=30, must-revalidate' } })
+  const publishedOffers = [
+    ...admissionOffers.map(offer => publicAdmissionOffer(offer)),
+    ...portalOffers.map(offer => publicAdmissionOffer({
+      ...offer,
+      publicTitle: offer.publicTitle || offer.title,
+      publicDescription: offer.publicDescription || offer.description,
+    })),
+  ]
+  return NextResponse.json({ items, admissionOffers: publishedOffers }, { headers: { 'Cache-Control': 'public, max-age=30, must-revalidate' } })
 }

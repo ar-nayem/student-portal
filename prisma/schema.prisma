@@ -766,6 +766,34 @@ model Offer {
   startDate   DateTime
   endDate     DateTime?
   isActive    Boolean   @default(true)
+  // One portal offer powers both the internal/chatbot listing and, when
+  // enabled, the public EDVUNO admission directory.
+  publishToWebsite       Boolean  @default(true)
+  privateUniversityName  String?
+  exactLocation          String?
+  publicTitle            String?
+  publicDescription      String?
+  city                   String?
+  program                String?
+  intake                 String?
+  minAge                 Int?
+  maxAge                 Int?
+  tuitionMin             Float?
+  tuitionMax             Float?
+  tuitionPeriod          String   @default("SEMESTER")
+  hostelMin              Float?
+  hostelMax              Float?
+  hostelPeriod           String   @default("MONTH")
+  stipendMin             Float?
+  stipendMax             Float?
+  showUniversityName     Boolean  @default(false)
+  showExactLocation      Boolean  @default(false)
+  showCity               Boolean  @default(true)
+  showProgram            Boolean  @default(true)
+  showAge                Boolean  @default(true)
+  showTuition            Boolean  @default(true)
+  showHostel             Boolean  @default(true)
+  showStipend            Boolean  @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -778,6 +806,7 @@ model Offer {
   @@index([isActive])
   @@index([startDate])
   @@index([organizationId])
+  @@index([organizationId, publishToWebsite, isActive])
 }
 
 // Structured university admission opportunities, separate from chatbot promos.

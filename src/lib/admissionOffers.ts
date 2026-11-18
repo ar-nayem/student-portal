@@ -78,8 +78,8 @@ export function publicAdmissionOffer(offer: Record<string, any>) {
   const result: Record<string, unknown> = { id: offer.id, title: offer.publicTitle, description: offer.publicDescription }
   if (offer.showUniversityName) result.universityName = offer.privateUniversityName
   if (offer.showExactLocation && offer.exactLocation) result.exactLocation = offer.exactLocation
-  if (offer.showCity) result.city = offer.city
-  if (offer.showProgram) result.program = offer.program
+  if (offer.showCity && offer.city) result.city = offer.city
+  if (offer.showProgram && offer.program) result.program = offer.program
   if (offer.showProgram && offer.intake) result.intake = offer.intake
   if (offer.showAge && (offer.minAge !== null || offer.maxAge !== null)) {
     result.minAge = offer.minAge

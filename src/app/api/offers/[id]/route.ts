@@ -4,6 +4,7 @@ import { prisma } from '@/src/lib/prisma'
 import { getEffectiveUser, isAdminRole, orgHasFeature } from '@/src/lib/session'
 import { isSameOrg } from '@/src/lib/orgScope'
 import { NextRequest, NextResponse } from 'next/server'
+import { parseAdmissionOffer, parseOfferError } from '@/src/lib/admissionOffers'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -29,6 +30,29 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.startDate) data.startDate = new Date(body.startDate)
     if ('endDate' in body) data.endDate = body.endDate ? new Date(body.endDate) : null
     if (typeof body.isActive === 'boolean') data.isActive = body.isActive
+    if (typeof body.publishToWebsite === 'boolean') {
+      data.publishToWebsite = body.publishToWebsite
+      const hasWebsiteDetails = [body.privateUniversityName, body.publicTitle, body.city, body.program].some(value => typeof value === 'string' && value.trim())
+      if (hasWebsiteDetails) {
+        try {
+          const parsed = parseAdmissionOffer({
+            ...body,
+            publicTitle: body.title || existing.title,
+            publicDescription: body.description || existing.description,
+            status: body.publishToWebsite ? 'PUBLISHED' : 'DRAFT',
+            startsAt: body.startDate || existing.startDate,
+            endsAt: body.endDate === undefined ? existing.endDate : body.endDate,
+          })
+          const { status: _status, startsAt: _startsAt, endsAt: _endsAt, ...fields } = parsed
+          Object.assign(data, fields)
+        } catch (error) {
+          return parseOfferError(error)
+        }
+      } else {
+        data.publicTitle = body.title || existing.title
+        data.publicDescription = body.description || existing.description
+      }
+    }
 
     const updated = await prisma.offer.update({ where: { id }, data })
     return NextResponse.json(updated)

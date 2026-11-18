@@ -4,6 +4,7 @@ import { prisma } from '@/src/lib/prisma'
 import { getEffectiveUser, isAdminRole, orgHasFeature } from '@/src/lib/session'
 import { orgWhere, requireOrgId } from '@/src/lib/orgScope'
 import { computeOfferStatus } from '@/src/lib/chatbot'
+import { parseAdmissionOffer, parseOfferError } from '@/src/lib/admissionOffers'
 import { NextRequest, NextResponse } from 'next/server'
 
 // GET is intentionally public (no session required) — the landing/login page
@@ -31,7 +32,16 @@ export async function GET(req: NextRequest) {
     const offers = await prisma.offer.findMany({
       where,
       orderBy: { startDate: 'asc' },
-      select: {
+      select: includeAll ? {
+        id: true, title: true, description: true, imageUrl: true,
+        startDate: true, endDate: true, isActive: true, createdAt: true, updatedAt: true,
+        publishToWebsite: true, privateUniversityName: true, exactLocation: true, publicTitle: true, publicDescription: true,
+        city: true, program: true, intake: true, minAge: true, maxAge: true, tuitionMin: true, tuitionMax: true,
+        tuitionPeriod: true, hostelMin: true, hostelMax: true, hostelPeriod: true, stipendMin: true, stipendMax: true,
+        showUniversityName: true, showExactLocation: true, showCity: true, showProgram: true, showAge: true,
+        showTuition: true, showHostel: true, showStipend: true,
+        createdBy: { select: { name: true } },
+      } : {
         id: true, title: true, description: true, imageUrl: true,
         startDate: true, endDate: true, isActive: true, createdAt: true, updatedAt: true,
         createdBy: { select: { name: true } },
@@ -63,9 +73,29 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     const { title, description, imageUrl, startDate, endDate, isActive } = body
+    const publishToWebsite = body.publishToWebsite !== false
 
     if (!title || !description || !startDate) {
       return NextResponse.json({ error: 'title, description and startDate are required' }, { status: 400 })
+    }
+
+    const hasWebsiteDetails = [body.privateUniversityName, body.publicTitle, body.city, body.program].some(value => typeof value === 'string' && value.trim())
+    let websiteFields: Record<string, unknown> = {}
+    if (publishToWebsite || hasWebsiteDetails) {
+      try {
+        const parsed = parseAdmissionOffer({
+          ...body,
+          publicTitle: body.title,
+          publicDescription: body.description,
+          status: publishToWebsite ? 'PUBLISHED' : 'DRAFT',
+          startsAt: startDate,
+          endsAt: endDate,
+        })
+        const { status: _status, startsAt: _startsAt, endsAt: _endsAt, ...fields } = parsed
+        websiteFields = fields
+      } catch (error) {
+        return parseOfferError(error)
+      }
     }
 
     const offer = await prisma.offer.create({
@@ -76,6 +106,8 @@ export async function POST(req: NextRequest) {
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
         isActive: isActive ?? true,
+        publishToWebsite,
+        ...websiteFields,
         createdById: user.id,
         organizationId: orgId,
       },
