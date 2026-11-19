@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import localFont from 'next/font/local'
 import './globals.css'
 import { Providers } from './providers'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = localFont({ src: '../../public/fonts/inter.woff2', display: 'swap' })
 
 // This tag is rendered before any request-scoped org context exists (no
 // subdomain-per-tenant routing yet — everyone shares one domain), so it can't
