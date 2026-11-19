@@ -60,7 +60,113 @@ body{font-size:15px;color:#123b30}h1,h2,h3{ text-wrap:balance}p{line-height:1.8}
   .home-page #discovery-form { gap: 10px; }
 }
 
-/* Structured admission offers published from the student portal. */
+/* Fluid EDVUNO foundations. */
+:root { --page-gutter:clamp(1.125rem,5vw,5.5rem); --content-width:79rem; --section-space:clamp(3.5rem,7vw,7rem); }
+html { scroll-behavior:smooth; scroll-padding-top:6rem; }
+*,*::before,*::after { box-sizing:border-box; }
+body { font-size:clamp(.9375rem,.88rem + .2vw,1.0625rem); overflow-wrap:break-word; }
+body.drawer-open { overflow:hidden; }
+img { max-width:100%; height:auto; }
+button,input,select,textarea { font:inherit; }
+button,a,input,select,textarea { touch-action:manipulation; }
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible { outline:3px solid #65cda5; outline-offset:4px; }
+.section { padding:var(--section-space) var(--page-gutter); }
+.section-inner,.nav-shell { width:100%; max-width:var(--content-width); margin-inline:auto; min-width:0; }
+.section h2,.agency-section-title h2 { font-size:clamp(1.875rem,1.3rem + 2.5vw,3.375rem); }
+.section p { max-width:70ch; }
+.nav-shell { height:5.5rem; padding-inline:var(--page-gutter); max-width:90rem; gap:1rem; }
+.brand { width:7rem; height:4.5rem; }
+.desktop-nav,.nav-shell>.nav-cta { display:none; }
+.menu-toggle { display:flex; min-width:44px; min-height:44px; z-index:102; }
+.mobile-menu[hidden] { display:none!important; }
+.mobile-menu { display:flex; position:fixed; inset:5.5rem 0 0 auto; width:min(88vw,25rem); height:calc(100dvh - 5.5rem); overflow-y:auto; flex-direction:column; padding:1.25rem 1.5rem 2rem; gap:.25rem; background:#103f32; color:#fff; z-index:101; box-shadow:-20px 20px 60px #05201840; animation:drawer-enter .25s ease-out; }
+.mobile-menu a { display:block; padding:.85rem .5rem; min-height:44px; font-size:1rem; border-bottom:1px solid #ffffff20; }
+.mobile-menu .mobile-cta { background:#65cda5; color:#103f32; margin-top:1rem; border-radius:.4rem; padding:1rem; }
+.drawer-backdrop { position:fixed; inset:5.5rem 0 0; background:#05201880; z-index:90; border:0; width:100%; }
+.drawer-backdrop[hidden] { display:none; }
+@keyframes drawer-enter { from { transform:translateX(100%); } to { transform:translateX(0); } }
+.home-page .agency-hero { padding:7rem var(--page-gutter) 2rem; min-height:100svh; display:flex; flex-direction:column; gap:1.25rem; }
+.home-page .agency-hero-top { width:100%; margin:0 auto; font-size:.75rem; }
+.home-page .agency-title { width:100%; margin:auto; padding:0; }
+.home-page .agency-title h1 { font-size:clamp(2.125rem,6.1vw,4.875rem); line-height:1.06; max-width:19ch; }
+.home-page .agency-title>div { max-width:38rem; margin-top:1.25rem; }
+.home-page .agency-title p { font-size:clamp(.9375rem,1.2vw,1.0625rem); line-height:1.65; margin-bottom:1.25rem; }
+.home-page .agency-hero .discovery { width:100%; margin:0 auto; flex-shrink:0; }
+.discovery-tabs { gap:clamp(.85rem,3vw,2rem); padding-inline:1rem; overflow-x:auto; }
+.discovery-tabs button { min-height:48px; padding-block:.9rem; white-space:nowrap; font-size:.75rem; }
+#discovery-form { display:grid; grid-template-columns:minmax(0,1fr); padding:1rem; gap:1rem; }
+#discovery-form label,#discovery-form label:first-child,#discovery-form .btn { grid-column:auto; min-width:0; }
+#discovery-form label { font-size:.75rem; gap:.5rem; }
+#discovery-form select { height:48px; font-size:1rem; }
+#discovery-form .btn { width:100%; min-height:48px; }
+.discovery-note { padding:0 1rem 1rem; font-size:.6875rem; line-height:1.5; }
+.btn,.nav-cta { min-height:48px; font-size:.8125rem; transition:transform .18s ease,background-color .18s ease,box-shadow .18s ease; }
+.btn:active,.nav-cta:active { transform:scale(.98); }
+.agency-about-grid,.agency-city-grid,.agency-service-grid,.card-grid,.process-grid,.split,.detail-layout,.contact-grid,.form-layout { display:grid; grid-template-columns:minmax(0,1fr); gap:clamp(1.125rem,2.5vw,2rem); }
+.agency-section-title { display:grid; grid-template-columns:minmax(0,1fr); gap:1.25rem; align-items:end; }
+.agency-section-title>p,.agency-section-title>div { margin:0; }
+.agency-city { height:auto; aspect-ratio:4/3; min-width:0; }
+.agency-city>img { width:100%; height:100%; object-fit:cover; }
+.agency-news-image,.news-card>img,.uni-card>img,.card-image { width:100%; height:auto; aspect-ratio:16/10; object-fit:cover; background-size:cover; background-position:center; }
+.card-body { padding:clamp(1.125rem,2.5vw,1.75rem); }
+.card-body h3 { font-size:clamp(1.25rem,1.1rem + .6vw,1.5rem); }
+.agency-service { min-height:0; padding:1.5rem; }
+.agency-service h3 { margin-top:1.5rem; }
+.agency-service p,.agency-city p { font-size:.875rem; }
+.agency-values { justify-content:center; }
+.filter-shell { display:grid; grid-template-columns:minmax(0,1fr); gap:.75rem; }
+.filter-shell input,.filter-shell select,.filter-shell button { min-width:0; width:100%; min-height:48px; font-size:1rem; }
+#published-count { padding-block:1rem; font-size:.875rem; }
+.page-hero { min-height:25rem; margin-top:0; }
+.page-hero-content { padding:8rem var(--page-gutter) 3rem; }
+.page-hero h1 { font-size:clamp(2.25rem,6vw,4.5rem); }
+.page-hero p { max-width:60ch; }
+.university-strip { background:#ddf8e9; }
+.university-names { display:flex; gap:1.5rem 2.5rem; flex-wrap:wrap; padding-block:1.5rem; }
+.university-names a { font-size:clamp(1rem,2vw,1.375rem); font-weight:600; }
+.footer-top { display:grid; grid-template-columns:minmax(0,1fr); gap:2.5rem; }
+.footer-links { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:2rem 1rem; }
+.footer-links>div { min-width:0; }
+.footer-links a { padding-block:.4rem; line-height:1.5; }
+.footer-bottom { display:flex; flex-wrap:wrap; gap:1rem 2rem; font-size:.75rem; line-height:1.6; }
+.site-footer { padding:var(--section-space) var(--page-gutter) 1.5rem; }
+@media(min-width:40rem) {
+ #discovery-form { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .card-grid,.agency-service-grid,.agency-city-grid,.contact-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .process-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .filter-shell { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .filter-shell input { grid-column:1/-1; }
+ .footer-links { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+@media(min-width:64rem) {
+ .home-page .agency-hero { padding-top:clamp(7rem,16svh,9rem); gap:clamp(1.5rem,4svh,3rem); }
+ #discovery-form { grid-template-columns:1.2fr 1fr 1fr auto; }
+ #discovery-form[data-mode=services] { grid-template-columns:1fr auto; }
+ .agency-city-grid,.card-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+ .agency-service-grid,.process-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+ .agency-about-grid,.split,.form-layout { grid-template-columns:1.1fr .9fr; }
+ .detail-layout { grid-template-columns:minmax(0,2fr) minmax(16rem,1fr); }
+ .agency-section-title { grid-template-columns:1.2fr 1fr; }
+ .filter-shell { grid-template-columns:1.5fr repeat(4,minmax(0,1fr)) auto; }
+ .filter-shell input { grid-column:auto; }
+ .footer-top { grid-template-columns:1fr 2fr; }
+}
+@media(min-width:78rem) {
+ .desktop-nav { display:flex; gap:clamp(.75rem,1.5vw,1.5rem); font-size:.75rem; }
+ .nav-shell>.nav-cta { display:inline-flex; white-space:nowrap; padding:1rem; }
+ .menu-toggle,.mobile-menu,.drawer-backdrop { display:none!important; }
+}
+@media(hover:hover) and (prefers-reduced-motion:no-preference) {
+ .uni-card,.news-card,.agency-city,.agency-service { transition:transform .22s ease,box-shadow .22s ease; }
+ .uni-card:hover,.news-card:hover,.agency-city:hover,.agency-service:hover { transform:translateY(-4px); box-shadow:0 16px 32px #103f3214; }
+}
+@media(prefers-reduced-motion:reduce) {
+ html { scroll-behavior:auto; }
+ *,*::before,*::after { animation:none!important; transition:none!important; }
+}
+.menu-toggle { flex-direction:column; justify-content:center; align-items:center; gap:5px; }
+.menu-toggle>span:not(.sr-only) { width:24px; height:2px; margin:0; background:currentColor; }
+
 .offer-filter-shell{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));align-items:center}
 .offer-filter-shell .offer-budget{display:grid;grid-template-columns:minmax(0,1fr) minmax(105px,.85fr);gap:8px}
 .offer-filter-shell input,.offer-filter-shell select,.offer-filter-shell button{min-width:0}
@@ -82,3 +188,5 @@ body{font-size:15px;color:#123b30}h1,h2,h3{ text-wrap:balance}p{line-height:1.8}
 .legacy-offers h2{font-size:30px;margin-bottom:24px}
 @media(max-width:1000px){.offer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:680px){.offer-grid{grid-template-columns:1fr}.offer-filter-shell .offer-budget{grid-template-columns:1fr 1fr}.admission-card{padding:22px}}
+
+.offer-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr));gap:1.25rem}.admission-card{min-width:0}.offer-filter-shell{grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr))}
